@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package gorm;
+
+option go_package = "github.com/catalystsquad/protoc-gen-go-gorm/options;gorm";
+
+import "google/protobuf/descriptor.proto";
+
+// Currently no file options
+extend google.protobuf.FileOptions {
+  gormFileOptions file_opts = 52119;
+}
+
+message gormFileOptions {
+}
+
+extend google.protobuf.MessageOptions {
+    gormMessageOptions opts = 52119;
+}
+
+message gormMessageOptions {
+  bool ignore = 1;
+}
+
+// Field level specifications
+extend google.protobuf.FieldOptions {
+    gormFieldOptions field = 52119;
+}
+
+message gormFieldOptions {
+  bool ignore = 1;
+}

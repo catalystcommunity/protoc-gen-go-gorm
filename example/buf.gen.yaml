@@ -1,0 +1,15 @@
+version: v1
+plugins:
+  - remote: buf.build/library/plugins/go:v1.27.1-1
+    out: .
+    opt:
+    - paths=source_relative
+  - name: go-weaviate
+    out: .
+    opt:
+      - paths=source_relative
+  - name: go-json
+    out: .
+    opt:
+      - paths=source_relative
+      - allow_unknown=true
