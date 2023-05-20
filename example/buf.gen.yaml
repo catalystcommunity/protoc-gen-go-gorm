@@ -4,7 +4,7 @@ plugins:
     out: .
     opt:
     - paths=source_relative
-  - name: go-weaviate
+  - name: go-gorm
     out: .
     opt:
       - paths=source_relative
