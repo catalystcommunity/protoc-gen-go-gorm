@@ -46,6 +46,8 @@ jobs:
     name: Release Dry Run
     runs-on: ubuntu-latest
     steps:
+    - uses: crazy-max/ghaction-dump-context@v1
+    - uses: actions/checkout@v3
     - name: Get semver-tags
       run: |
         go install github.com/catalystsquad/semver-tags@latest
