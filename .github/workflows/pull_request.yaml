@@ -1,0 +1,81 @@
+name: Validate pull request
+on:
+  pull_request:
+    branches:
+      - main
+jobs:
+  conventional-commits-pr:
+    if: github.event.pull_request.draft == false
+    name: Validate Conventional Commits PR
+    runs-on: ubuntu-latest
+    steps:
+      - uses: crazy-max/ghaction-dump-context@v1
+      - uses: catalystsquad/action-validate-conventional-commits-pr@v1
+  generate:
+    name: Generate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: crazy-max/ghaction-dump-context@v1
+      - uses: actions/checkout@v3
+      - name: Setup Go With Caching
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.20"
+      - name: Setup Buf
+        uses: bufbuild/buf-setup-action@v1.19.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - run: |
+          make generate
+      - uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: 'chore: regenerated options and examples'
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: crazy-max/ghaction-dump-context@v1
+      - uses: actions/checkout@v3
+      - name: Setup Go With Caching
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.20"
+      - name: Setup Buf
+        uses: bufbuild/buf-setup-action@v1.19.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - run: |
+          make test
+  release-dry-run:
+    name: Release Dry Run
+    runs-on: ubuntu-latest
+    steps:
+    - uses: crazy-max/ghaction-dump-context@v1
+    - uses: actions/checkout@v3
+    - name: Setup Go With Caching
+      uses: actions/setup-go@v4
+      with:
+        go-version: "1.20"
+    - name: Get semver-tags
+      run: |
+        go install github.com/catalystsquad/semver-tags@latest
+        semver-tags -h
+    - name: Semver Tags
+      id: semver-tags
+      run: |
+        semver-tags run --dry_run --github_action | yq -P -o=json "."
+    - name: tags-output
+      run: |
+        echo "new_release_published: ${{ steps.semver-tags.outputs.new_release_published }}"
+        echo "new_release_version: ${{ steps.semver-tags.outputs.new_release_version }}"
+        echo "new_release_major_version: ${{ steps.semver-tags.outputs.new_release_major_version }}"
+        echo "new_release_published: ${{ steps.semver-tags.outputs.new_release_published }}"
+        echo "new_release_patch_version: ${{ steps.semver-tags.outputs.new_release_patch_version }}"
+        echo "new_release_git_head: ${{ steps.semver-tags.outputs.new_release_git_head }}"
+        echo "new_release_git_tag: ${{ steps.semver-tags.outputs.new_release_git_tag }}"
+        echo "last_release_version: ${{ steps.semver-tags.outputs.last_release_version }}"
+        echo "last_release_git_head: ${{ steps.semver-tags.outputs.last_release_git_head }}"
+        echo "last_release_git_tag: ${{ steps.semver-tags.outputs.last_release_git_tag }}"
+        echo "dry_run: ${{ steps.semver-tags.outputs.dry_run }}"
+        echo "new_release_notes_json: ${{ steps.semver-tags.outputs.new_release_notes_json }}"
+        echo "new_release_notes: ${{ steps.semver-tags.outputs.new_release_notes }}"

@@ -1,0 +1,107 @@
+syntax = "proto3";
+
+package example;
+
+option go_package = "github.com/catalystsquad/protoc-gen-go-gorm/example;example";
+
+import "google/protobuf/timestamp.proto";
+import "options/gorm.proto";
+
+message Thing {
+  option (gorm.opts) = {ormable: true,};
+  // @gotags: fake:"skip"
+  optional string id = 1;
+  // @gotags: fake:"skip"
+  google.protobuf.Timestamp created_at = 2;
+  // @gotags: fake:"skip"
+  google.protobuf.Timestamp updated_at = 3;
+  // @gotags: fake:"{price:0.00,1000.00}"
+  double a_double = 4;
+  // @gotags: fake:"{price:0.00,1000.00}"
+  float a_float = 5;
+  // @gotags: fake:"{int32}"
+  int32 an_int32 = 6;
+  // @gotags: fake:"{number:9223372036854775807}"
+  int64 an_int64 = 7;
+  // @gotags: fake:"{bool}"
+  bool a_bool = 16;
+  // @gotags: fake:"{hackerphrase}"
+  string a_string = 17;
+  // @gotags: fake:"skip"
+  bytes a_bytes = 18;
+  // @gotags: fake:"{price:0.00,1000.00}"
+  repeated double doubles = 19;
+  // @gotags: fake:"{price:0.00,1000.00}"
+  repeated float floats = 20;
+  // @gotags: fake:"{int32}"
+  repeated int32 int32s = 21;
+  // @gotags: fake:"{number:9223372036854775807}"
+  repeated int64 int64s = 22;
+  // @gotags: fake:"{bool}"
+  repeated bool bools = 31;
+  // @gotags: fake:"{hackerphrase}"
+  repeated string strings = 32;
+  // @gotags: fake:"skip"
+  repeated bytes bytess = 33;
+  // @gotags: fake:"skip"
+  optional string optional_scalar_field = 34;
+  // @gotags: fake:"skip"
+  BelongsToThing belongs_to = 35 [(gorm.field).belongs_to = {}];
+  // @gotags: fake:"skip"
+  HasOneThing has_one = 36 [(gorm.field).has_one = {}];
+  // @gotags: fake:"skip"
+  repeated HasManyThing has_many = 37 [(gorm.field).has_many = {}];
+  // @gotags: fake:"skip"
+  repeated ManyToManyThing many_to_many = 38 [(gorm.field).many_to_many = {}];
+}
+
+message BelongsToThing {
+  option (gorm.opts) = {ormable: true,};
+  // @gotags: fake:"skip"
+  optional string id = 1;
+  // @gotags: fake:"skip"
+  google.protobuf.Timestamp created_at = 2;
+  // @gotags: fake:"skip"
+  google.protobuf.Timestamp updated_at = 3;
+  // @gotags: fake:"{name}"
+  string name = 4;
+}
+message HasOneThing {
+  option (gorm.opts) = {ormable: true,};
+  // @gotags: fake:"skip"
+  optional string id = 1;
+  // @gotags: fake:"skip"
+  google.protobuf.Timestamp created_at = 2;
+  // @gotags: fake:"skip"
+  google.protobuf.Timestamp updated_at = 3;
+  // @gotags: fake:"{name}"
+  string name = 4;
+  // @gotags: fake:"skip"
+  optional string thing_id = 5;
+}
+
+message HasManyThing {
+  option (gorm.opts) = {ormable: true,};
+  // @gotags: fake:"skip"
+  optional string id = 1;
+  // @gotags: fake:"skip"
+  google.protobuf.Timestamp created_at = 2;
+  // @gotags: fake:"skip"
+  google.protobuf.Timestamp updated_at = 3;
+  // @gotags: fake:"{name}"
+  string name = 4;
+  // @gotags: fake:"skip"
+  optional string thing_id = 5;
+}
+
+message ManyToManyThing {
+  option (gorm.opts) = {ormable: true,};
+  // @gotags: fake:"skip"
+  optional string id = 1;
+  // @gotags: fake:"skip"
+  google.protobuf.Timestamp created_at = 2;
+  // @gotags: fake:"skip"
+  google.protobuf.Timestamp updated_at = 3;
+  // @gotags: fake:"{name}"
+  string name = 4;
+}
