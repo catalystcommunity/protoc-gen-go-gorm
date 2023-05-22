@@ -1,11 +1,11 @@
 package plugin
 
 const GormTemplate = `
-package {{ package }}
+package {{ .package }}
 
 import (
+	"github.com/lib/pq"
 	"github.com/samber/lo"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"time"
 )
 
@@ -26,11 +26,11 @@ func (m {{ gormModelName . }}) ToProto() *{{ protoMessageName . }} {
 }
 
 func (m *{{ protoMessageName . }}) ToGormModel() {{ gormModelName . }} {
-	model := {{ gormModelName . }}{}
+	theModel := {{ gormModelName . }}{}
 	{{- range .Fields }}
 	{{ protoToGormModelField . -}}
 	{{ end }}
-	return model
+	return theModel
 }
 
 {{- end }}

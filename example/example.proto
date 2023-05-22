@@ -7,7 +7,7 @@ option go_package = "example.example";
 import "google/protobuf/timestamp.proto";
 
 message Thing {
-  // @gotags: fake:"{uuid}"
+  // @gotags: fake:"skip"
   optional string id = 1;
   // @gotags: fake:"skip"
   google.protobuf.Timestamp created_at = 2;
@@ -19,32 +19,28 @@ message Thing {
   float a_float = 5;
   // @gotags: fake:"{int32}"
   int32 an_int32 = 6;
-  // @gotags: fake:"{int64}"
+  // @gotags: fake:"{number:9223372036854775807}"
   int64 an_int64 = 7;
-  // @gotags: fake:"{uint32}"
-  uint32 a_uint32 = 8;
-  // @gotags: fake:"{uint64}"
-  uint64 a_uint64 = 9;
-  // @gotags: fake:"{int32}"
-  sint32 an_sint32 = 10;
-  // @gotags: fake:"{int64}"
-  sint64 an_sint64 = 11;
-  // @gotags: fake:"{uint32}"
-  fixed32 a_fixed32 = 12;
-  // @gotags: fake:"{uint64}"
-  fixed64 a_fixed64 = 13;
-  // @gotags: fake:"{int32}"
-  sfixed32 an_sfixed32 = 14;
-  // @gotags: fake:"{int64}"
-  sfixed64 an_sfixed64 = 15;
   // @gotags: fake:"{bool}"
   bool a_bool = 16;
   // @gotags: fake:"{hackerphrase}"
   string a_string = 17;
   // @gotags: fake:"skip"
   bytes a_bytes = 18;
+  // @gotags: fake:"{price:0.00,1000.00}"
+  repeated double doubles = 19;
+  // @gotags: fake:"{price:0.00,1000.00}"
+  repeated float floats = 20;
+  // @gotags: fake:"{int32}"
+  repeated int32 int32s = 21;
+  // @gotags: fake:"{number:9223372036854775807}"
+  repeated int64 int64s = 22;
+  // @gotags: fake:"{bool}"
+  repeated bool bools = 31;
   // @gotags: fake:"{hackerphrase}"
-  repeated string repeated_scalar_field = 19;
+  repeated string strings = 32;
   // @gotags: fake:"skip"
-  optional string optional_scalar_field = 20;
+  repeated bytes bytess = 33;
+  // @gotags: fake:"skip"
+  optional string optional_scalar_field = 34;
 }

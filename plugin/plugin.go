@@ -2,13 +2,13 @@ package plugin
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/pluginpb"
 	"strings"
 	"text/template"
-
-	"google.golang.org/protobuf/compiler/protogen"
-	"google.golang.org/protobuf/types/pluginpb"
 )
 
 type Builder struct {
@@ -40,6 +40,49 @@ var templateFuncs = map[string]any{
 
 var g *protogen.GeneratedFile
 
+func (b *Builder) Generate() (response *pluginpb.CodeGeneratorResponse, err error) {
+	for _, protoFile := range b.plugin.Files {
+		// make sure all field types are supported
+		if err = fileIsSupported(protoFile); err != nil {
+			return
+		}
+		// template the proto file
+		if err = b.handleFile(protoFile); err != nil {
+			return
+		}
+	}
+	// no errors, set and return the response
+	response = b.plugin.Response()
+	return
+}
+
+func (b *Builder) handleFile(file *protogen.File) (err error) {
+	var tpl *template.Template
+	var data bytes.Buffer
+	templateMap := map[string]any{
+		"package":  file.GoPackageName,
+		"messages": file.Messages,
+	}
+	// create template and parse template file
+	if tpl, err = template.New("gorm").Funcs(templateFuncs).Parse(GormTemplate); err != nil {
+		return
+	}
+	// create new generated file
+	g = b.plugin.NewGeneratedFile(fileName(file), ".")
+
+	if err = tpl.Execute(&data, templateMap); err != nil {
+		return
+	}
+	// write the templated data to the generated file
+	if _, err = g.Write(data.Bytes()); err != nil {
+		return
+	}
+	return
+}
+
+func fileName(file *protogen.File) string {
+	return file.GeneratedFilenamePrefix + ".pb.gorm.go"
+}
 func protoMessageName(message *protogen.Message) protoreflect.Name {
 	return message.Desc.Name()
 }
@@ -78,10 +121,14 @@ func getGormModelFieldType(field *protogen.Field) string {
 	fieldType := ""
 	slice := slice(field)
 	pointer := pointer(field)
+	fieldKind := fieldKind(field)
 	if isTimestampType(field) {
 		fieldType = gormModelTimestampType
+	} else if isRepeated(field) {
+		slice = ""
+		fieldType = gormArrayTypeMap[fieldKind]
 	} else {
-		fieldType = gormTypeMap[fieldKind(field)]
+		fieldType = gormTypeMap[fieldKind]
 	}
 	return fmt.Sprintf("%s%s%s", slice, pointer, fieldType)
 }
@@ -97,9 +144,11 @@ func getFieldTags(field *protogen.Field) string {
 func getGormFieldTag(field *protogen.Field) string {
 	tag := "gorm:\""
 	if isIdField(field) {
-		tag += "primaryKey;default:gen_random_uuid()"
+		tag += "type:uuid;primaryKey;default:gen_random_uuid();"
 	} else if isTimestampType(field) {
 		tag += "default:now()"
+	} else if isRepeated(field) {
+		tag += fmt.Sprintf("type:%s", gormTagTypeMap[fieldKind(field)])
 	}
 	return tag + "\""
 }
@@ -139,7 +188,29 @@ func gormModelToProtoField(field *protogen.Field) string {
 }
 
 func protoToGormModelField(field *protogen.Field) string {
-	return ""
+	fieldName := fieldGoName(field)
+	fieldType := fieldGoType(field)
+	if isTimestampType(field) {
+		return fmt.Sprintf(`if m.%s != nil {
+			theModel.%s = lo.ToPtr(m.%s.AsTime())
+		}`, fieldName, fieldName, fieldName)
+	} else if isPrimitiveType(field) {
+		return fmt.Sprintf("theModel.%s = m.%s", fieldName, fieldName)
+	} else {
+		// message type means we need to convert messages to protos using their toGormModel method
+		if isRepeated(field) {
+			// repeated means loop through and append
+			return fmt.Sprintf(`
+				theModel.%s = []%s{}
+				for _, message := range m.%s {
+					theModel.%s = append(theModel.%s, message.ToGormModel())
+				}
+			`, fieldName, fieldType, fieldName, fieldName, fieldName)
+		} else {
+			// not repeated, simply call toGormModel on the field
+			return fmt.Sprintf("theModel.%s = m.%s.ToGormModel()", fieldName, fieldName)
+		}
+	}
 }
 
 func isRepeated(field *protogen.Field) bool {
@@ -223,66 +294,60 @@ func parseParameter(param string) map[string]string {
 	return paramMap
 }
 
-func (b *Builder) Generate() (response *pluginpb.CodeGeneratorResponse, err error) {
-	for _, protoFile := range b.plugin.Files {
-		var tpl *template.Template
-		templateFuncs["package"] = func() string { return string(protoFile.GoPackageName) }
-		if tpl, err = template.New("gorm").Funcs(templateFuncs).Parse(GormTemplate); err != nil {
-			return
-		}
-		fileName := protoFile.GeneratedFilenamePrefix + ".pb.gorm.go"
-		g = b.plugin.NewGeneratedFile(fileName, ".")
-		var data bytes.Buffer
-		templateMap := map[string]any{
-			"messages": protoFile.Messages,
-		}
-		if err = tpl.Execute(&data, templateMap); err != nil {
-			return
-		}
-		if _, err = g.Write(data.Bytes()); err != nil {
-			return
-		}
-	}
-	response = b.plugin.Response()
-	return
+var supportedTypes = map[protoreflect.Kind]bool{
+	protoreflect.BoolKind:    true,
+	protoreflect.EnumKind:    true,
+	protoreflect.Int32Kind:   true,
+	protoreflect.Int64Kind:   true,
+	protoreflect.FloatKind:   true,
+	protoreflect.DoubleKind:  true,
+	protoreflect.StringKind:  true,
+	protoreflect.BytesKind:   true,
+	protoreflect.MessageKind: true,
 }
 
 var gormTypeMap = map[protoreflect.Kind]string{
-	protoreflect.BoolKind:     "bool",
-	protoreflect.EnumKind:     "int",
-	protoreflect.Int32Kind:    "int32",
-	protoreflect.Sint32Kind:   "int32",
-	protoreflect.Uint32Kind:   "uint32",
-	protoreflect.Int64Kind:    "int64",
-	protoreflect.Sint64Kind:   "int64",
-	protoreflect.Uint64Kind:   "uint64",
-	protoreflect.Sfixed32Kind: "int32",
-	protoreflect.Fixed32Kind:  "uint32",
-	protoreflect.FloatKind:    "float32",
-	protoreflect.Sfixed64Kind: "int64",
-	protoreflect.Fixed64Kind:  "uint64",
-	protoreflect.DoubleKind:   "float64",
-	protoreflect.StringKind:   "string",
-	protoreflect.BytesKind:    "[]byte",
+	protoreflect.BoolKind:   "bool",
+	protoreflect.EnumKind:   "int",
+	protoreflect.Int32Kind:  "int32",
+	protoreflect.Int64Kind:  "int64",
+	protoreflect.FloatKind:  "float32",
+	protoreflect.DoubleKind: "float64",
+	protoreflect.StringKind: "string",
+	protoreflect.BytesKind:  "[]byte",
+}
+
+var gormArrayTypeMap = map[protoreflect.Kind]string{
+	protoreflect.BoolKind:   "pq.BoolArray",
+	protoreflect.EnumKind:   "pq.Int32Array",
+	protoreflect.Int32Kind:  "pq.Int32Array",
+	protoreflect.FloatKind:  "pq.Float32Array",
+	protoreflect.Int64Kind:  "pq.Int64Array",
+	protoreflect.DoubleKind: "pq.Float64Array",
+	protoreflect.StringKind: "pq.StringArray",
+	protoreflect.BytesKind:  "pq.ByteaArray",
+}
+
+var gormTagTypeMap = map[protoreflect.Kind]string{
+	protoreflect.BoolKind:   "bool[]",
+	protoreflect.EnumKind:   "int[]",
+	protoreflect.Int32Kind:  "int[]",
+	protoreflect.FloatKind:  "float[]",
+	protoreflect.Int64Kind:  "int[]",
+	protoreflect.DoubleKind: "float[]",
+	protoreflect.StringKind: "string[]",
+	protoreflect.BytesKind:  "bytes[]",
 }
 
 var goTypeMap = map[protoreflect.Kind]string{
-	protoreflect.BoolKind:     "bool",
-	protoreflect.EnumKind:     "int",
-	protoreflect.Int32Kind:    "int32",
-	protoreflect.Sint32Kind:   "int32",
-	protoreflect.Uint32Kind:   "uint32",
-	protoreflect.Int64Kind:    "int64",
-	protoreflect.Sint64Kind:   "int64",
-	protoreflect.Uint64Kind:   "uint64",
-	protoreflect.Sfixed32Kind: "int32",
-	protoreflect.Fixed32Kind:  "uint32",
-	protoreflect.FloatKind:    "float32",
-	protoreflect.Sfixed64Kind: "int64",
-	protoreflect.Fixed64Kind:  "uint64",
-	protoreflect.DoubleKind:   "float64",
-	protoreflect.StringKind:   "string",
-	protoreflect.BytesKind:    "[]byte",
+	protoreflect.BoolKind:   "bool",
+	protoreflect.EnumKind:   "int",
+	protoreflect.Int32Kind:  "int32",
+	protoreflect.Int64Kind:  "int64",
+	protoreflect.FloatKind:  "float32",
+	protoreflect.DoubleKind: "float64",
+	protoreflect.StringKind: "string",
+	protoreflect.BytesKind:  "[]byte",
 }
 
 func getImport(field *protogen.Field) string {
@@ -291,4 +356,23 @@ func getImport(field *protogen.Field) string {
 
 func isTimestampType(field *protogen.Field) bool {
 	return isMessageType(field) && getImport(field) == protoTimestampType
+}
+
+func fileIsSupported(file *protogen.File) (err error) {
+	for _, message := range file.Messages {
+		for _, field := range message.Fields {
+			if err = fieldTypeIsSupported(field); err != nil {
+				return
+			}
+		}
+	}
+	return
+}
+
+func fieldTypeIsSupported(field *protogen.Field) (err error) {
+	fieldKind := fieldKind(field)
+	if !supportedTypes[fieldKind] {
+		err = errors.New(fmt.Sprintf("field %s is of unsupported type: %s", field.GoName, fieldKind))
+	}
+	return
 }
