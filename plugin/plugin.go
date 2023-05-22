@@ -104,6 +104,7 @@ func handleMessage(message *protogen.Message) (err error) {
 func fileName(file *protogen.File) string {
 	return file.GeneratedFilenamePrefix + ".pb.gorm.go"
 }
+
 func protoMessageName(message *protogen.Message) protoreflect.Name {
 	return message.Desc.Name()
 }
@@ -150,7 +151,7 @@ func getGormModelFieldHasOneField(field *protogen.Field) (belongsToField string)
 }
 
 func pointer(field *protogen.Field) string {
-	if isOptional(field) || isMessage(field) {
+	if !isRepeated(field) && (isOptional(field) || isMessage(field)) {
 		return "*"
 	}
 	return ""
@@ -222,11 +223,11 @@ func getGormFieldTag(field *protogen.Field) string {
 		tag += "type:uuid;primaryKey;default:gen_random_uuid();"
 	} else if isTimestampType(field) {
 		tag += "default:now()"
-	} else if isRepeated(field) {
+	} else if isRepeated(field) && !isMessage(field) {
 		tag += fmt.Sprintf("type:%s", gormTagTypeMap[fieldKind(field)])
 	}
 	options := getFieldOptions(field)
-	if options != nil && options.GetHasOne() != nil {
+	if options != nil && (options.GetHasOne() != nil || options.GetHasMany() != nil) {
 		tag += fmt.Sprintf("foreignKey:%sId", protoMessageName(field.Parent))
 	}
 	return tag + "\""
@@ -279,7 +280,14 @@ func getGormModelToProtoMessageField(field *protogen.Field) string {
 		}`, fieldName, fieldName, fieldName)
 	}
 	if isRepeated(field) {
-
+		return fmt.Sprintf(`
+	if len(m.%s) > 0 {
+		theProto.%s = []*%s{}
+		for _, model := range m.%s {
+			theProto.%s = append(theProto.%s, model.ToProto())
+		}
+	}
+`, fieldName, fieldName, fieldGoType(field), fieldName, fieldName, fieldName)
 	}
 	return fmt.Sprintf("theProto.%s = m.%s.ToProto()", fieldName, fieldName)
 }
@@ -291,7 +299,6 @@ func getGormModelToProtoPrimitiveField(field *protogen.Field) string {
 
 func protoToGormModelField(field *protogen.Field) string {
 	fieldName := fieldGoName(field)
-	fieldType := fieldGoType(field)
 	if isTimestampType(field) {
 		return fmt.Sprintf(`if m.%s != nil {
 			theModel.%s = lo.ToPtr(m.%s.AsTime())
@@ -301,13 +308,17 @@ func protoToGormModelField(field *protogen.Field) string {
 	} else {
 		// message type means we need to convert messages to protos using their toGormModel method
 		if isRepeated(field) {
+			fieldType := gormModelName(field.Message)
 			// repeated means loop through and append
 			return fmt.Sprintf(`
-				theModel.%s = []%s{}
+				if len(m.%s) > 0 {
+				theModel.%s = []*%s{}
 				for _, message := range m.%s {
 					theModel.%s = append(theModel.%s, message.ToGormModel())
 				}
-			`, fieldName, fieldType, fieldName, fieldName, fieldName)
+				}
+				
+			`, fieldName, fieldName, fieldType, fieldName, fieldName, fieldName)
 		} else {
 			// not repeated, simply call toGormModel on the field
 			return fmt.Sprintf("theModel.%s = m.%s.ToGormModel()", fieldName, fieldName)

@@ -6,6 +6,7 @@ import (
 	"github.com/brianvoe/gofakeit/v6"
 	. "github.com/catalystsquad/protoc-gen-go-gorm/example/demo"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/orlangure/gnomock"
 	"github.com/orlangure/gnomock/preset/cockroachdb"
 	"github.com/stretchr/testify/require"
@@ -32,26 +33,49 @@ func (s *PluginSuite) TestPlugin() {
 	thingProto := &Thing{}
 	belongsToThingProto := &BelongsToThing{}
 	hasOneThingProto := &HasOneThing{}
+	hasManyThingProto1, HasManyThingProto2, hasManyThingProto3 := &HasManyThing{}, &HasManyThing{}, &HasManyThing{}
 	err = gofakeit.Struct(&thingProto)
 	require.NoError(s.T(), err)
 	err = gofakeit.Struct(&belongsToThingProto)
 	require.NoError(s.T(), err)
 	err = gofakeit.Struct(&hasOneThingProto)
 	require.NoError(s.T(), err)
+	err = gofakeit.Struct(&hasManyThingProto1)
+	require.NoError(s.T(), err)
+	err = gofakeit.Struct(&HasManyThingProto2)
+	require.NoError(s.T(), err)
+	err = gofakeit.Struct(&hasManyThingProto3)
+	require.NoError(s.T(), err)
 	thingProto.BelongsTo = belongsToThingProto
 	thingProto.HasOne = hasOneThingProto
+	thingProto.HasMany = []*HasManyThing{hasManyThingProto1, HasManyThingProto2, hasManyThingProto3}
 	thingModel := thingProto.ToGormModel()
 	require.NoError(s.T(), err)
 	err = db.Create(&thingModel).Error
 	require.NoError(s.T(), err)
 	var firstThing *ThingGormModel
 	var firstThingProto *Thing
-	err = db.Joins("BelongsTo").Joins("HasOne").First(&firstThing).Error
+	err = db.Joins("BelongsTo").Joins("HasOne").Preload("HasMany").First(&firstThing).Error
 	require.NoError(s.T(), err)
-	require.Empty(s.T(), cmp.Diff(thingModel, firstThing))
+	require.Empty(s.T(), cmp.Diff(thingModel, firstThing, cmpopts.SortSlices(func(x, y *HasManyThingGormModel) bool {
+		return x.Name < y.Name
+	})))
 	firstThingProto = firstThing.ToProto()
 	require.NoError(s.T(), err)
-	require.Empty(s.T(), cmp.Diff(thingProto, firstThingProto, protocmp.Transform(), protocmp.IgnoreFields(&Thing{}, "created_at", "id", "updated_at"), protocmp.IgnoreFields(&BelongsToThing{}, "created_at", "id", "updated_at"), protocmp.IgnoreFields(&HasOneThing{}, "created_at", "id", "updated_at", "thing_id")))
+	require.Empty(s.T(),
+		cmp.Diff(
+			thingProto,
+			firstThingProto,
+			protocmp.Transform(),
+			protocmp.IgnoreFields(&Thing{}, "created_at", "id", "updated_at"),
+			protocmp.IgnoreFields(&BelongsToThing{}, "created_at", "id", "updated_at"),
+			protocmp.IgnoreFields(&HasOneThing{}, "created_at", "id", "updated_at", "thing_id"),
+			protocmp.IgnoreFields(&HasManyThing{}, "created_at", "id", "updated_at", "thing_id"),
+			protocmp.SortRepeated(func(x, y *HasManyThing) bool {
+				return x.Name < y.Name
+			}),
+		),
+	)
 }
 
 func (s *PluginSuite) SetupSuite() {
@@ -67,7 +91,7 @@ func (s *PluginSuite) SetupSuite() {
 	dsn := fmt.Sprintf("host=%s port=%d user=root dbname=%s sslmode=disable", container.Host, container.DefaultPort(), "postgres")
 	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	require.NoError(s.T(), err)
-	err = db.AutoMigrate(&ThingGormModel{}, &HasOneThingGormModel{})
+	err = db.AutoMigrate(&ThingGormModel{}, &HasOneThingGormModel{}, &HasManyThingGormModel{})
 	require.NoError(s.T(), err)
 }
 
