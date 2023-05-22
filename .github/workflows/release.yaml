@@ -32,7 +32,7 @@ jobs:
       - name: Get semver-tags
         run: |
           go install github.com/catalystsquad/semver-tags@latest
-      - name: Semver Tags Dry Run
+      - name: Release
         id: semver-tags
         run: |
           ./.github/scripts/do_release.sh fullrun
