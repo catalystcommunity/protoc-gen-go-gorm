@@ -128,16 +128,16 @@ func getPrimitiveGormModelField(field *protogen.Field) string {
 }
 
 func getMessageGormModelField(field *protogen.Field) (modelField string) {
+	fieldName := getMessageGormModelFieldName(field)
+	fieldType := getMessageGormModelFieldType(field)
+	fieldTags := getFieldTags(field)
 	options := getFieldOptions(field)
-	if !isTimestampType(field) {
-		if options != nil && options.GetBelongsTo() != nil {
+	if !isTimestampType(field) && options != nil {
+		if options.GetBelongsTo() != nil {
 			modelField = getGormModelFieldBelongsToField(field)
 		}
-		if options != nil && options.GetHasOne() != nil {
-			modelField = getGormModelFieldHasOneField(field)
-		}
 	}
-	modelField = fmt.Sprintf("%s%s%s %s %s", modelField, fieldComments(field), getMessageGormModelFieldName(field), getMessageGormModelFieldType(field), getFieldTags(field))
+	modelField = fmt.Sprintf("%s%s%s %s %s", modelField, fieldComments(field), fieldName, fieldType, fieldTags)
 	return
 }
 
@@ -224,6 +224,10 @@ func getGormFieldTag(field *protogen.Field) string {
 		tag += "default:now()"
 	} else if isRepeated(field) {
 		tag += fmt.Sprintf("type:%s", gormTagTypeMap[fieldKind(field)])
+	}
+	options := getFieldOptions(field)
+	if options != nil && options.GetHasOne() != nil {
+		tag += fmt.Sprintf("foreignKey:%sId", protoMessageName(field.Parent))
 	}
 	return tag + "\""
 }
