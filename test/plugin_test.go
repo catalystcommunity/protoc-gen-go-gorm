@@ -14,6 +14,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"testing"
 )
 
@@ -34,6 +35,7 @@ func (s *PluginSuite) TestPlugin() {
 	belongsToThingProto := &BelongsToThing{}
 	hasOneThingProto := &HasOneThing{}
 	hasManyThingProto1, HasManyThingProto2, hasManyThingProto3 := &HasManyThing{}, &HasManyThing{}, &HasManyThing{}
+	manyToManyProto1, manyToManyProto2, manyToManyProto3 := &ManyToManyThing{}, &ManyToManyThing{}, &ManyToManyThing{}
 	err = gofakeit.Struct(&thingProto)
 	require.NoError(s.T(), err)
 	err = gofakeit.Struct(&belongsToThingProto)
@@ -46,20 +48,34 @@ func (s *PluginSuite) TestPlugin() {
 	require.NoError(s.T(), err)
 	err = gofakeit.Struct(&hasManyThingProto3)
 	require.NoError(s.T(), err)
+	err = gofakeit.Struct(&manyToManyProto1)
+	require.NoError(s.T(), err)
+	err = gofakeit.Struct(&manyToManyProto2)
+	require.NoError(s.T(), err)
+	err = gofakeit.Struct(&manyToManyProto3)
+	require.NoError(s.T(), err)
 	thingProto.BelongsTo = belongsToThingProto
 	thingProto.HasOne = hasOneThingProto
 	thingProto.HasMany = []*HasManyThing{hasManyThingProto1, HasManyThingProto2, hasManyThingProto3}
+	thingProto.ManyToMany = []*ManyToManyThing{manyToManyProto1, manyToManyProto2, manyToManyProto3}
 	thingModel := thingProto.ToGormModel()
 	require.NoError(s.T(), err)
 	err = db.Create(&thingModel).Error
 	require.NoError(s.T(), err)
 	var firstThing *ThingGormModel
 	var firstThingProto *Thing
-	err = db.Joins("BelongsTo").Joins("HasOne").Preload("HasMany").First(&firstThing).Error
+	err = db.Joins("BelongsTo").Joins("HasOne").Preload(clause.Associations).First(&firstThing).Error
 	require.NoError(s.T(), err)
-	require.Empty(s.T(), cmp.Diff(thingModel, firstThing, cmpopts.SortSlices(func(x, y *HasManyThingGormModel) bool {
-		return x.Name < y.Name
-	})))
+	require.Empty(s.T(), cmp.Diff(
+		thingModel,
+		firstThing,
+		cmpopts.SortSlices(func(x, y *HasManyThingGormModel) bool {
+			return x.Name < y.Name
+		}),
+		cmpopts.SortSlices(func(x, y *ManyToManyThingGormModel) bool {
+			return x.Name < y.Name
+		}),
+	))
 	firstThingProto = firstThing.ToProto()
 	require.NoError(s.T(), err)
 	require.Empty(s.T(),
@@ -71,7 +87,11 @@ func (s *PluginSuite) TestPlugin() {
 			protocmp.IgnoreFields(&BelongsToThing{}, "created_at", "id", "updated_at"),
 			protocmp.IgnoreFields(&HasOneThing{}, "created_at", "id", "updated_at", "thing_id"),
 			protocmp.IgnoreFields(&HasManyThing{}, "created_at", "id", "updated_at", "thing_id"),
+			protocmp.IgnoreFields(&ManyToManyThing{}, "created_at", "id", "updated_at"),
 			protocmp.SortRepeated(func(x, y *HasManyThing) bool {
+				return x.Name < y.Name
+			}),
+			protocmp.SortRepeated(func(x, y *ManyToManyThing) bool {
 				return x.Name < y.Name
 			}),
 		),

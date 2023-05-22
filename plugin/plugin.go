@@ -222,13 +222,17 @@ func getGormFieldTag(field *protogen.Field) string {
 	if isIdField(field) {
 		tag += "type:uuid;primaryKey;default:gen_random_uuid();"
 	} else if isTimestampType(field) {
-		tag += "default:now()"
+		tag += "default:now();"
 	} else if isRepeated(field) && !isMessage(field) {
-		tag += fmt.Sprintf("type:%s", gormTagTypeMap[fieldKind(field)])
+		tag += fmt.Sprintf("type:%s;", gormTagTypeMap[fieldKind(field)])
 	}
 	options := getFieldOptions(field)
-	if options != nil && (options.GetHasOne() != nil || options.GetHasMany() != nil) {
-		tag += fmt.Sprintf("foreignKey:%sId", protoMessageName(field.Parent))
+	if options != nil {
+		if options.GetHasOne() != nil || options.GetHasMany() != nil {
+			tag += fmt.Sprintf("foreignKey:%sId;", protoMessageName(field.Parent))
+		} else if options.GetManyToMany() != nil {
+			tag += fmt.Sprintf("many2many:%ss_%ss;", strings.ToLower(string(protoMessageName(field.Parent))), strings.ToLower(getMessageGormModelFieldName(field)))
+		}
 	}
 	return tag + "\""
 }
