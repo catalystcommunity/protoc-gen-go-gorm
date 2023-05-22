@@ -29,7 +29,15 @@ jobs:
       - name: Get semver-tags
         run: |
           go install github.com/catalystsquad/semver-tags@latest
-      - name: Release
+      - name: Semver Tags
         id: semver-tags
+        working-directory: ./
         run: |
-          ./.github/scripts/do_release.sh fullrun
+          semver-tags run --github_action | yq -P -o=json "."
+      - name: Make Release
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_NAME: ${{ steps.semver-tags.outputs.new_release_git_tag }}
+        run: |
+          ./.github/scripts/make_release.sh "${RELEASE_NAME}"
