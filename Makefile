@@ -1,7 +1,7 @@
 options:
 	buf generate --template proto/options/buf.gen.yaml --path proto/options
 build-options:
-	cd options; buf generate
+	buf generate --template proto/options/buf.gen.yaml --path proto/options
 build-example:
 	go install
 	go install github.com/favadi/protoc-go-inject-tag@latest

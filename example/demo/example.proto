@@ -46,7 +46,9 @@ message Thing {
   // @gotags: fake:"skip"
   optional string optional_scalar_field = 34;
   // @gotags: fake:"skip"
-  BelongsToThing belongs_to = 35;
+  BelongsToThing belongs_to = 35 [(gorm.field).belongs_to = {}];
+  // @gotags: fake:"skip"
+  HasOneThing has_one = 36 [(gorm.field).has_one = {}];
 }
 
 message BelongsToThing {
@@ -60,27 +62,16 @@ message BelongsToThing {
   // @gotags: fake:"{name}"
   string name = 4;
 }
-//
-//message HasThing {
-//  // @gotags: fake:"skip"
-//  optional string id = 1;
-//  // @gotags: fake:"skip"
-//  google.protobuf.Timestamp created_at = 2;
-//  // @gotags: fake:"skip"
-//  google.protobuf.Timestamp updated_at = 3;
-//  // @gotags: fake:"{name}"
-//  string name = 4;
-//}
-//
-//message ManyToManyThings {
-//  // @gotags: fake:"skip"
-//  optional string id = 1;
-//  // @gotags: fake:"skip"
-//  google.protobuf.Timestamp created_at = 2;
-//  // @gotags: fake:"skip"
-//  google.protobuf.Timestamp updated_at = 3;
-//  // @gotags: fake:"{name}"
-//  string name = 4;
-//  // @gotags: fake:"skip"
-//  repeated Thing many_to_many = 5;
-//}
+message HasOneThing {
+  option (gorm.opts) = {ormable: true,};
+  // @gotags: fake:"skip"
+  optional string id = 1;
+  // @gotags: fake:"skip"
+  google.protobuf.Timestamp created_at = 2;
+  // @gotags: fake:"skip"
+  google.protobuf.Timestamp updated_at = 3;
+  // @gotags: fake:"{name}"
+  string name = 4;
+  // @gotags: fake:"skip"
+  optional string thing_id = 5;
+}

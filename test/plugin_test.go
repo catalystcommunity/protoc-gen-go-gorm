@@ -31,23 +31,27 @@ func (s *PluginSuite) TestPlugin() {
 	var err error
 	thingProto := &Thing{}
 	belongsToThingProto := &BelongsToThing{}
+	hasOneThingProto := &HasOneThing{}
 	err = gofakeit.Struct(&thingProto)
 	require.NoError(s.T(), err)
 	err = gofakeit.Struct(&belongsToThingProto)
 	require.NoError(s.T(), err)
+	err = gofakeit.Struct(&hasOneThingProto)
+	require.NoError(s.T(), err)
 	thingProto.BelongsTo = belongsToThingProto
+	thingProto.HasOne = hasOneThingProto
 	thingModel := thingProto.ToGormModel()
 	require.NoError(s.T(), err)
 	err = db.Create(&thingModel).Error
 	require.NoError(s.T(), err)
 	var firstThing *ThingGormModel
 	var firstThingProto *Thing
-	err = db.Joins("BelongsTo").First(&firstThing).Error
+	err = db.Joins("BelongsTo").Joins("HasOne").First(&firstThing).Error
 	require.NoError(s.T(), err)
 	require.Empty(s.T(), cmp.Diff(thingModel, firstThing))
 	firstThingProto = firstThing.ToProto()
 	require.NoError(s.T(), err)
-	require.Empty(s.T(), cmp.Diff(thingProto, firstThingProto, protocmp.Transform(), protocmp.IgnoreFields(&Thing{}, "created_at", "id", "updated_at"), protocmp.IgnoreFields(&BelongsToThing{}, "created_at", "id", "updated_at")))
+	require.Empty(s.T(), cmp.Diff(thingProto, firstThingProto, protocmp.Transform(), protocmp.IgnoreFields(&Thing{}, "created_at", "id", "updated_at"), protocmp.IgnoreFields(&BelongsToThing{}, "created_at", "id", "updated_at"), protocmp.IgnoreFields(&HasOneThing{}, "created_at", "id", "updated_at", "thing_id")))
 }
 
 func (s *PluginSuite) SetupSuite() {
@@ -63,7 +67,7 @@ func (s *PluginSuite) SetupSuite() {
 	dsn := fmt.Sprintf("host=%s port=%d user=root dbname=%s sslmode=disable", container.Host, container.DefaultPort(), "postgres")
 	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	require.NoError(s.T(), err)
-	err = db.AutoMigrate(&ThingGormModel{})
+	err = db.AutoMigrate(&ThingGormModel{}, &HasOneThingGormModel{})
 	require.NoError(s.T(), err)
 }
 

@@ -129,14 +129,23 @@ func getPrimitiveGormModelField(field *protogen.Field) string {
 
 func getMessageGormModelField(field *protogen.Field) (modelField string) {
 	options := getFieldOptions(field)
-	if !isTimestampType(field) && options != nil && options.AssociationType == gorm.AssociationType_BELONGS_TO {
-		modelField = getGormModelFieldBelongsToField(field)
+	if !isTimestampType(field) {
+		if options != nil && options.GetBelongsTo() != nil {
+			modelField = getGormModelFieldBelongsToField(field)
+		}
+		if options != nil && options.GetHasOne() != nil {
+			modelField = getGormModelFieldHasOneField(field)
+		}
 	}
 	modelField = fmt.Sprintf("%s%s%s %s %s", modelField, fieldComments(field), getMessageGormModelFieldName(field), getMessageGormModelFieldType(field), getFieldTags(field))
 	return
 }
 
 func getGormModelFieldBelongsToField(field *protogen.Field) (belongsToField string) {
+	return fmt.Sprintf("%s%sId *string `` \n", fieldComments(field), fieldGoName(field))
+}
+
+func getGormModelFieldHasOneField(field *protogen.Field) (belongsToField string) {
 	return fmt.Sprintf("%s%sId *string `` \n", fieldComments(field), fieldGoName(field))
 }
 
