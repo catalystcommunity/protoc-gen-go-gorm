@@ -48,6 +48,10 @@ jobs:
     steps:
     - uses: crazy-max/ghaction-dump-context@v1
     - uses: actions/checkout@v3
+    - name: Setup Go With Caching
+      uses: magnetikonline/action-golang-cache@v4
+      with:
+        go-version: "1.20"
     - name: Get semver-tags
       run: |
         go install github.com/catalystsquad/semver-tags@latest
