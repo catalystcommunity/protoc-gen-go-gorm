@@ -1,0 +1,17 @@
+# https://docs.buf.build/lint-usage/
+version: v1
+name: github.com/catalystsquad/protoc-gen-go-gorm
+lint:
+  use:
+    - DEFAULT
+  ignore:
+    - example
+    - google
+  ignore_only:
+    PACKAGE_DIRECTORY_MATCH:
+    - options
+    PACKAGE_VERSION_SUFFIX:
+    - options
+breaking:
+  use:
+    - FILE

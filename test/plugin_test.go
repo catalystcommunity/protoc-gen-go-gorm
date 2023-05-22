@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/brianvoe/gofakeit/v6"
-	. "github.com/catalystsquad/protoc-gen-go-gorm/example"
+	. "github.com/catalystsquad/protoc-gen-go-gorm/example/demo"
 	"github.com/google/go-cmp/cmp"
 	"github.com/orlangure/gnomock"
 	"github.com/orlangure/gnomock/preset/cockroachdb"
@@ -29,28 +29,36 @@ func TestPluginSuite(t *testing.T) {
 
 func (s *PluginSuite) TestPlugin() {
 	var err error
-	var thingModel ThingGormModel
-	thingProto := Thing{}
+	thingProto := &Thing{}
+	belongsToThingProto := &BelongsToThing{}
 	err = gofakeit.Struct(&thingProto)
 	require.NoError(s.T(), err)
-	thingModel = thingProto.ToGormModel()
+	err = gofakeit.Struct(&belongsToThingProto)
+	require.NoError(s.T(), err)
+	thingProto.BelongsTo = belongsToThingProto
+	thingModel := thingProto.ToGormModel()
 	require.NoError(s.T(), err)
 	err = db.Create(&thingModel).Error
 	require.NoError(s.T(), err)
-	var firstThing ThingGormModel
+	var firstThing *ThingGormModel
 	var firstThingProto *Thing
-	err = db.First(&firstThing).Error
+	err = db.Joins("BelongsTo").First(&firstThing).Error
 	require.NoError(s.T(), err)
 	require.Empty(s.T(), cmp.Diff(thingModel, firstThing))
 	firstThingProto = firstThing.ToProto()
 	require.NoError(s.T(), err)
-	require.Empty(s.T(), cmp.Diff(&thingProto, firstThingProto, protocmp.Transform(), protocmp.IgnoreFields(&Thing{}, "created_at", "id", "updated_at")))
+	require.Empty(s.T(), cmp.Diff(thingProto, firstThingProto, protocmp.Transform(), protocmp.IgnoreFields(&Thing{}, "created_at", "id", "updated_at"), protocmp.IgnoreFields(&BelongsToThing{}, "created_at", "id", "updated_at")))
 }
 
 func (s *PluginSuite) SetupSuite() {
 	preset := cockroachdb.Preset()
 	var err error
-	container, err = gnomock.Start(preset)
+	portOpt := gnomock.WithCustomNamedPorts(gnomock.NamedPorts{"default": gnomock.Port{
+		Protocol: "tcp",
+		Port:     26257,
+		HostPort: 26257,
+	}})
+	container, err = gnomock.Start(preset, portOpt)
 	require.NoError(s.T(), err)
 	dsn := fmt.Sprintf("host=%s port=%d user=root dbname=%s sslmode=disable", container.Host, container.DefaultPort(), "postgres")
 	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})

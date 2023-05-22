@@ -25,11 +25,20 @@ message GormMessageOptions {
   string table = 3;
 }
 
+enum AssociationType {
+  ASSOCIATION_UNDEFINED = 0;
+  BELONGS_TO = 1;
+  HAS_ONE = 2;
+  HAS_MANY = 3;
+  MANY_TO_MANY = 4;
+}
+
 // Field level specifications
 extend google.protobuf.FieldOptions {
     GormFieldOptions field = 52119;
 }
 
 message GormFieldOptions {
-    string gormTag = 1;
+    string GormTag = 1;
+    AssociationType AssociationType = 2;
 }

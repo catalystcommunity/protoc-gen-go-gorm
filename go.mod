@@ -5,8 +5,10 @@ go 1.20
 require (
 	github.com/brianvoe/gofakeit/v6 v6.21.0
 	github.com/google/go-cmp v0.5.9
+	github.com/lib/pq v1.10.8
 	github.com/orlangure/gnomock v0.28.0
 	github.com/samber/lo v1.38.1
+	github.com/stoewer/go-strcase v1.3.0
 	github.com/stretchr/testify v1.8.3
 	google.golang.org/protobuf v1.30.0
 	gorm.io/driver/postgres v1.5.2
@@ -29,7 +31,6 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/kr/text v0.2.0 // indirect
-	github.com/lib/pq v1.10.8 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect

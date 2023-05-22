@@ -1,37 +1,35 @@
 package plugin
 
 const GormTemplate = `
-package {{ .package }}
-
-import (
-	"github.com/lib/pq"
-	"github.com/samber/lo"
-	"time"
-)
-
-{{ range .messages }}
-type {{ gormModelName . }} struct {
-	{{- range .Fields }}
-	{{ fieldComments . -}}
+type {{ gormModelName .message }} struct {
+	{{- range .message.Fields }}
     {{ gormModelField . -}}
 	{{ end }}
 }
 
-func (m {{ gormModelName . }}) ToProto() *{{ protoMessageName . }} {
-	theProto := &{{ protoMessageName . }}{}
-	{{- range .Fields }}
+func (m *{{ gormModelName .message }}) TableName() string {
+	return {{ tableName .message }}
+}
+
+func (m *{{ gormModelName .message }}) ToProto() *{{ protoMessageName .message }} {
+	if m == nil {
+		return nil
+	}
+	theProto := &{{ protoMessageName .message }}{}
+	{{- range .message.Fields }}
     {{ gormModelToProtoField . -}}
 	{{ end }}
 	return theProto
 }
 
-func (m *{{ protoMessageName . }}) ToGormModel() {{ gormModelName . }} {
-	theModel := {{ gormModelName . }}{}
-	{{- range .Fields }}
+func (m *{{ protoMessageName .message }}) ToGormModel() *{{ gormModelName .message }} {
+	if m == nil {
+		return nil
+	}
+	theModel := &{{ gormModelName .message }}{}
+	{{- range .message.Fields }}
 	{{ protoToGormModelField . -}}
 	{{ end }}
 	return theModel
 }
-
-{{- end }}
 `

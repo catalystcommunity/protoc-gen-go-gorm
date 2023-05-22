@@ -4,8 +4,12 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	gorm "github.com/catalystsquad/protoc-gen-go-gorm/options"
+	"github.com/stoewer/go-strcase"
 	"google.golang.org/protobuf/compiler/protogen"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/pluginpb"
 	"strings"
 	"text/template"
@@ -21,7 +25,7 @@ type Builder struct {
 	suppressWarn   bool
 }
 
-const protoTimestampType = "timestamppb.Timestamp"
+const protoTimestampTypeGoName = "Timestamp"
 const gormModelTimestampType = "time.Time"
 
 // I can't find where the constant is for this in protogen, so I'm putting it here
@@ -36,6 +40,7 @@ var templateFuncs = map[string]any{
 	"fieldGoType":           fieldGoType,
 	"fieldGoIdent":          fieldGoIdent,
 	"gormModelName":         gormModelName,
+	"tableName":             tableName,
 }
 
 var g *protogen.GeneratedFile
@@ -57,26 +62,42 @@ func (b *Builder) Generate() (response *pluginpb.CodeGeneratorResponse, err erro
 }
 
 func (b *Builder) handleFile(file *protogen.File) (err error) {
-	var tpl *template.Template
-	var data bytes.Buffer
-	templateMap := map[string]any{
-		"package":  file.GoPackageName,
-		"messages": file.Messages,
+	if fileHasOrmableMessages(file) {
+		// create new generated file
+		g = b.plugin.NewGeneratedFile(fileName(file), ".")
+		outputPackage(file)
+		for _, message := range file.Messages {
+			if err = handleMessage(message); err != nil {
+				return
+			}
+		}
 	}
-	// create template and parse template file
-	if tpl, err = template.New("gorm").Funcs(templateFuncs).Parse(GormTemplate); err != nil {
-		return
-	}
-	// create new generated file
-	g = b.plugin.NewGeneratedFile(fileName(file), ".")
+	return
+}
 
-	if err = tpl.Execute(&data, templateMap); err != nil {
-		return
+func outputPackage(file *protogen.File) {
+	g.P(fmt.Sprintf("package %s", file.GoPackageName))
+}
+
+func handleMessage(message *protogen.Message) (err error) {
+	if messageIsOrmable(message) {
+		var tpl *template.Template
+		var buffer bytes.Buffer
+		// create template and parse template file
+		if tpl, err = template.New("gorm").Funcs(templateFuncs).Parse(GormTemplate); err != nil {
+			return
+		}
+		// execute template
+		data := map[string]interface{}{"message": message}
+		if err = tpl.Execute(&buffer, data); err != nil {
+			return
+		}
+		// write the templated buffer to the generated file
+		if _, err = g.Write(buffer.Bytes()); err != nil {
+			return
+		}
 	}
-	// write the templated data to the generated file
-	if _, err = g.Write(data.Bytes()); err != nil {
-		return
-	}
+
 	return
 }
 
@@ -96,11 +117,31 @@ func fieldComments(field *protogen.Field) string {
 }
 
 func gormModelField(field *protogen.Field) string {
-	return fmt.Sprintf("%s %s %s", fieldGoName(field), getGormModelFieldType(field), getFieldTags(field))
+	if isMessage(field) {
+		return getMessageGormModelField(field)
+	}
+	return getPrimitiveGormModelField(field)
+}
+
+func getPrimitiveGormModelField(field *protogen.Field) string {
+	return fmt.Sprintf("%s%s %s %s", fieldComments(field), getPrimitiveGormModelFieldName(field), getPrimitiveGormModelFieldType(field), getFieldTags(field))
+}
+
+func getMessageGormModelField(field *protogen.Field) (modelField string) {
+	options := getFieldOptions(field)
+	if !isTimestampType(field) && options != nil && options.AssociationType == gorm.AssociationType_BELONGS_TO {
+		modelField = getGormModelFieldBelongsToField(field)
+	}
+	modelField = fmt.Sprintf("%s%s%s %s %s", modelField, fieldComments(field), getMessageGormModelFieldName(field), getMessageGormModelFieldType(field), getFieldTags(field))
+	return
+}
+
+func getGormModelFieldBelongsToField(field *protogen.Field) (belongsToField string) {
+	return fmt.Sprintf("%s%sId *string `` \n", fieldComments(field), fieldGoName(field))
 }
 
 func pointer(field *protogen.Field) string {
-	if isOptional(field) || isMessageType(field) {
+	if isOptional(field) || isMessage(field) {
 		return "*"
 	}
 	return ""
@@ -117,20 +158,45 @@ func fieldGoName(field *protogen.Field) string {
 	return field.GoName
 }
 
-func getGormModelFieldType(field *protogen.Field) string {
-	fieldType := ""
-	slice := slice(field)
+func getPrimitiveGormModelFieldName(field *protogen.Field) string {
+	return fieldGoName(field)
+}
+
+func getMessageGormModelFieldName(field *protogen.Field) string {
+	return fieldGoName(field)
+}
+
+func getPrimitiveGormModelFieldType(field *protogen.Field) (fieldType string) {
 	pointer := pointer(field)
-	fieldKind := fieldKind(field)
-	if isTimestampType(field) {
-		fieldType = gormModelTimestampType
-	} else if isRepeated(field) {
-		slice = ""
-		fieldType = gormArrayTypeMap[fieldKind]
+	if isRepeated(field) {
+		g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "github.com/lib/pq"})
+		fieldType = gormArrayTypeMap[fieldKind(field)]
 	} else {
-		fieldType = gormTypeMap[fieldKind]
+		fieldType = gormTypeMap[fieldKind(field)]
 	}
-	return fmt.Sprintf("%s%s%s", slice, pointer, fieldType)
+	return fmt.Sprintf("%s%s", pointer, fieldType)
+}
+
+func getMessageGormModelFieldType(field *protogen.Field) (fieldType string) {
+	pointer := pointer(field)
+	goType := gormModelName(field.Message)
+	if isTimestampType(field) {
+		g.QualifiedGoIdent(protogen.GoIdent{
+			GoName:       "",
+			GoImportPath: "time",
+		})
+		g.QualifiedGoIdent(protogen.GoIdent{
+			GoName:       "",
+			GoImportPath: "google.golang.org/protobuf/types/known/timestamppb",
+		})
+		goType = gormModelTimestampType
+	}
+	if isRepeated(field) {
+		fieldType = fmt.Sprintf("%s[]*%s", pointer, goType)
+	} else {
+		fieldType = fmt.Sprintf("*%s", goType)
+	}
+	return
 }
 
 func fieldKind(field *protogen.Field) protoreflect.Kind {
@@ -162,29 +228,52 @@ func getJsonFieldTag(field *protogen.Field) string {
 }
 
 func gormModelToProtoField(field *protogen.Field) string {
+	if isMessage(field) {
+		return getGormModelToProtoMessageField(field)
+	}
+	return getGormModelToProtoPrimitiveField(field)
+	//fieldName := fieldGoName(field)
+	//fieldType := fieldGoType(field)
+	//if isTimestampType(field) {
+	//	return fmt.Sprintf(`if m.%s != nil {
+	//		theProto.%s = timestamppb.New(lo.FromPtr(m.%s))
+	//	}`, fieldName, fieldName, fieldName)
+	//} else if isPrimitiveType(field) {
+	//	return fmt.Sprintf("theProto.%s = m.%s", fieldName, fieldName)
+	//} else {
+	//	// message type means we need to convert messages to protos using their toproto method
+	//	if isRepeated(field) {
+	//		// repeated means loop through and append
+	//		return fmt.Sprintf(`
+	//			theProto.%s = []%s{}
+	//			for _, message := range m.%s {
+	//				theProto.%s = append(theProto.%s, message.ToProto())
+	//			}
+	//		`, fieldName, fieldType, fieldName, fieldName, fieldName)
+	//	} else {
+	//		// not repeated, simply call toProto on the field
+	//		return fmt.Sprintf("theProto.%s = m.%s.ToProto()", fieldName, fieldName)
+	//	}
+	//}
+}
+
+func getGormModelToProtoMessageField(field *protogen.Field) string {
 	fieldName := fieldGoName(field)
-	fieldType := fieldGoType(field)
 	if isTimestampType(field) {
+		g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "github.com/samber/lo"})
 		return fmt.Sprintf(`if m.%s != nil {
 			theProto.%s = timestamppb.New(lo.FromPtr(m.%s))
 		}`, fieldName, fieldName, fieldName)
-	} else if isPrimitiveType(field) {
-		return fmt.Sprintf("theProto.%s = m.%s", fieldName, fieldName)
-	} else {
-		// message type means we need to convert messages to protos using their toproto method
-		if isRepeated(field) {
-			// repeated means loop through and append
-			return fmt.Sprintf(`
-				theProto.%s = []%s{}
-				for _, message := range m.%s {
-					theProto.%s = append(theProto.%s, message.ToProto())
-				}
-			`, fieldName, fieldType, fieldName, fieldName, fieldName)
-		} else {
-			// not repeated, simply call toProto on the field
-			return fmt.Sprintf("theProto.%s = m.%s.ToProto()", fieldName, fieldName)
-		}
 	}
+	if isRepeated(field) {
+
+	}
+	return fmt.Sprintf("theProto.%s = m.%s.ToProto()", fieldName, fieldName)
+}
+
+func getGormModelToProtoPrimitiveField(field *protogen.Field) string {
+	fieldName := fieldGoName(field)
+	return fmt.Sprintf("theProto.%s = m.%s", fieldName, fieldName)
 }
 
 func protoToGormModelField(field *protogen.Field) string {
@@ -223,8 +312,8 @@ func isPrimitiveType(field *protogen.Field) bool {
 	return fieldPrimitiveType(field) != ""
 }
 
-// isMessageType returns true if the field kind is protoreflect.MessageKind
-func isMessageType(field *protogen.Field) bool {
+// isMessage returns true if the field kind is protoreflect.MessageKind
+func isMessage(field *protogen.Field) bool {
 	return fieldKind(field) == protoreflect.MessageKind
 }
 
@@ -248,8 +337,8 @@ func fieldGoType(field *protogen.Field) (typ string) {
 }
 
 func fieldGoIdent(field *protogen.Field) string {
-	if isMessageType(field) {
-		return getImport(field)
+	if isMessage(field) && field.Message != nil {
+		return field.Message.GoIdent.String()
 	}
 	return ""
 }
@@ -350,19 +439,17 @@ var goTypeMap = map[protoreflect.Kind]string{
 	protoreflect.BytesKind:  "[]byte",
 }
 
-func getImport(field *protogen.Field) string {
-	return g.QualifiedGoIdent(field.Message.GoIdent)
-}
-
 func isTimestampType(field *protogen.Field) bool {
-	return isMessageType(field) && getImport(field) == protoTimestampType
+	return isMessage(field) && field.Message != nil && field.Message.GoIdent.GoName == protoTimestampTypeGoName
 }
 
 func fileIsSupported(file *protogen.File) (err error) {
 	for _, message := range file.Messages {
-		for _, field := range message.Fields {
-			if err = fieldTypeIsSupported(field); err != nil {
-				return
+		if messageIsOrmable(message) {
+			for _, field := range message.Fields {
+				if err = fieldTypeIsSupported(field); err != nil {
+					return
+				}
 			}
 		}
 	}
@@ -372,7 +459,66 @@ func fileIsSupported(file *protogen.File) (err error) {
 func fieldTypeIsSupported(field *protogen.Field) (err error) {
 	fieldKind := fieldKind(field)
 	if !supportedTypes[fieldKind] {
-		err = errors.New(fmt.Sprintf("field %s is of unsupported type: %s", field.GoName, fieldKind))
+		err = errors.New(fmt.Sprintf("field %s is of unsupported type: %s", field.GoIdent.String(), fieldKind))
 	}
 	return
+}
+
+func fileHasOrmableMessages(file *protogen.File) bool {
+	for _, message := range file.Messages {
+		if messageIsOrmable(message) {
+			return true
+		}
+	}
+	return false
+}
+
+func messageIsOrmable(message *protogen.Message) bool {
+	options := getMessageOptions(message)
+	return options != nil && options.Ormable
+}
+
+func getMessageOptions(message *protogen.Message) *gorm.GormMessageOptions {
+	options := message.Desc.Options()
+	if options == nil {
+		return nil
+	}
+	v := proto.GetExtension(options, gorm.E_Opts)
+	if v == nil {
+		return nil
+	}
+
+	opts, ok := v.(*gorm.GormMessageOptions)
+	if !ok {
+		return nil
+	}
+
+	return opts
+}
+
+func getFieldOptions(field *protogen.Field) *gorm.GormFieldOptions {
+	options := field.Desc.Options().(*descriptorpb.FieldOptions)
+	if options == nil {
+		return &gorm.GormFieldOptions{}
+	}
+
+	v := proto.GetExtension(options, gorm.E_Field)
+	if v == nil {
+		return nil
+	}
+
+	opts, ok := v.(*gorm.GormFieldOptions)
+	if !ok {
+		return nil
+	}
+
+	return opts
+}
+
+func tableName(message *protogen.Message) string {
+	options := getMessageOptions(message)
+	if options != nil && options.Table != "" {
+		return options.Table
+	}
+	return fmt.Sprintf(`"%ss"`, strcase.SnakeCase(message.GoIdent.GoName))
 }
