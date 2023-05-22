@@ -1,0 +1,51 @@
+name: Validate pull request
+on:
+  pull_request:
+    branches:
+      - main
+jobs:
+  conventional-commits-pr:
+    if: github.event.pull_request.draft == false
+    name: Validate Conventional Commits PR
+    runs-on: ubuntu-latest
+    steps:
+      - uses: crazy-max/ghaction-dump-context@v1
+      - uses: catalystsquad/action-validate-conventional-commits-pr@v1
+  generate:
+    name: Generate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: crazy-max/ghaction-dump-context@v1
+      - uses: actions/checkout@v3
+      - name: Setup Go With Caching
+        uses: magnetikonline/action-golang-cache@v4
+        with:
+          go-version: "1.20"
+      - run: |
+          make generate
+      - uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: 'chore: regenerated options and examples'
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: crazy-max/ghaction-dump-context@v1
+      - uses: actions/checkout@v3
+      - name: Setup Go With Caching
+        uses: magnetikonline/action-golang-cache@v4
+        with:
+          go-version: "1.20"
+      - run: |
+          make test
+  release-dry-run:
+    name: Release Dry Run
+    runs-on: ubuntu-latest
+    steps:
+    - name: Get semver-tags
+      run: |
+        wget -c https://github.com/catalystsquad/semver-tags/releases/download/v0.3.2/semver-tags.tar.gz -O - | tar -xz
+    - name: Semver Tags Dry Run
+      id: semver-tags
+      run: |
+        ./.github/scripts/dorelease.sh fullrun

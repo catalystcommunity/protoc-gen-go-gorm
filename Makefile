@@ -1,5 +1,3 @@
-options:
-	buf generate --template proto/options/buf.gen.yaml --path proto/options
 build-options:
 	buf generate --template proto/options/buf.gen.yaml --path proto/options
 build-example:
@@ -8,3 +6,9 @@ build-example:
 	buf generate --template example/demo/buf.gen.yaml --path example/demo
 	protoc-go-inject-tag -input example/demo/*.*.*.go
 	protoc-go-inject-tag -input example/demo/*.*.go
+clean:
+	rm -f example/demo/*.go
+	rm -f options/*.go
+generate: clean build-options build-example
+test: generate
+	go test -v ./test

@@ -30,45 +30,24 @@ func TestPluginSuite(t *testing.T) {
 }
 
 func (s *PluginSuite) TestPlugin() {
-	var err error
-	thingProto := &Thing{}
-	belongsToThingProto := &BelongsToThing{}
-	hasOneThingProto := &HasOneThing{}
-	hasManyThingProto1, HasManyThingProto2, hasManyThingProto3 := &HasManyThing{}, &HasManyThing{}, &HasManyThing{}
-	manyToManyProto1, manyToManyProto2, manyToManyProto3 := &ManyToManyThing{}, &ManyToManyThing{}, &ManyToManyThing{}
-	err = gofakeit.Struct(&thingProto)
+	thing := s.getPopulatedThing()
+	thingModel := thing.ToGormModel()
+	err := db.Create(&thingModel).Error
 	require.NoError(s.T(), err)
-	err = gofakeit.Struct(&belongsToThingProto)
-	require.NoError(s.T(), err)
-	err = gofakeit.Struct(&hasOneThingProto)
-	require.NoError(s.T(), err)
-	err = gofakeit.Struct(&hasManyThingProto1)
-	require.NoError(s.T(), err)
-	err = gofakeit.Struct(&HasManyThingProto2)
-	require.NoError(s.T(), err)
-	err = gofakeit.Struct(&hasManyThingProto3)
-	require.NoError(s.T(), err)
-	err = gofakeit.Struct(&manyToManyProto1)
-	require.NoError(s.T(), err)
-	err = gofakeit.Struct(&manyToManyProto2)
-	require.NoError(s.T(), err)
-	err = gofakeit.Struct(&manyToManyProto3)
-	require.NoError(s.T(), err)
-	thingProto.BelongsTo = belongsToThingProto
-	thingProto.HasOne = hasOneThingProto
-	thingProto.HasMany = []*HasManyThing{hasManyThingProto1, HasManyThingProto2, hasManyThingProto3}
-	thingProto.ManyToMany = []*ManyToManyThing{manyToManyProto1, manyToManyProto2, manyToManyProto3}
-	thingModel := thingProto.ToGormModel()
-	require.NoError(s.T(), err)
-	err = db.Create(&thingModel).Error
-	require.NoError(s.T(), err)
-	var firstThing *ThingGormModel
+	var firstThingModel *ThingGormModel
 	var firstThingProto *Thing
-	err = db.Joins("BelongsTo").Joins("HasOne").Preload(clause.Associations).First(&firstThing).Error
+	err = db.Joins("BelongsTo").Joins("HasOne").Preload(clause.Associations).First(&firstThingModel).Error
 	require.NoError(s.T(), err)
-	require.Empty(s.T(), cmp.Diff(
-		thingModel,
-		firstThing,
+	assertModelsEquality(s.T(), thingModel, firstThingModel)
+	firstThingProto = firstThingModel.ToProto()
+	assertProtosEquality(s.T(), thing, firstThingProto)
+}
+
+func assertModelsEquality(t *testing.T, expected, actual interface{}) {
+	// no need to ignore id, created_at, updated_at because gorm populates them on create
+	require.Empty(t, cmp.Diff(
+		expected,
+		actual,
 		cmpopts.SortSlices(func(x, y *HasManyThingGormModel) bool {
 			return x.Name < y.Name
 		}),
@@ -76,12 +55,15 @@ func (s *PluginSuite) TestPlugin() {
 			return x.Name < y.Name
 		}),
 	))
-	firstThingProto = firstThing.ToProto()
-	require.NoError(s.T(), err)
-	require.Empty(s.T(),
+}
+
+func assertProtosEquality(t *testing.T, expected, actual interface{}, ignoreFields ...string) {
+	// ignoring id, created_at, updated_at, thing_id because the original proto doesn't have those, but the
+	// one converted from the created model does
+	require.Empty(t,
 		cmp.Diff(
-			thingProto,
-			firstThingProto,
+			expected,
+			actual,
 			protocmp.Transform(),
 			protocmp.IgnoreFields(&Thing{}, "created_at", "id", "updated_at"),
 			protocmp.IgnoreFields(&BelongsToThing{}, "created_at", "id", "updated_at"),
@@ -96,6 +78,38 @@ func (s *PluginSuite) TestPlugin() {
 			}),
 		),
 	)
+}
+
+func (s *PluginSuite) getPopulatedThing() *Thing {
+	var err error
+	thing := &Thing{}
+	belongsToThing := &BelongsToThing{}
+	hasOneThing := &HasOneThing{}
+	hasManyThing1, HasManyThing2, hasManyThing3 := &HasManyThing{}, &HasManyThing{}, &HasManyThing{}
+	manyToManyThing1, ManyToManyThing2, manyToManyThing3 := &ManyToManyThing{}, &ManyToManyThing{}, &ManyToManyThing{}
+	err = gofakeit.Struct(&thing)
+	require.NoError(s.T(), err)
+	err = gofakeit.Struct(&belongsToThing)
+	require.NoError(s.T(), err)
+	err = gofakeit.Struct(&hasOneThing)
+	require.NoError(s.T(), err)
+	err = gofakeit.Struct(&hasManyThing1)
+	require.NoError(s.T(), err)
+	err = gofakeit.Struct(&HasManyThing2)
+	require.NoError(s.T(), err)
+	err = gofakeit.Struct(&hasManyThing3)
+	require.NoError(s.T(), err)
+	err = gofakeit.Struct(&manyToManyThing1)
+	require.NoError(s.T(), err)
+	err = gofakeit.Struct(&ManyToManyThing2)
+	require.NoError(s.T(), err)
+	err = gofakeit.Struct(&manyToManyThing3)
+	require.NoError(s.T(), err)
+	thing.BelongsTo = belongsToThing
+	thing.HasOne = hasOneThing
+	thing.HasMany = []*HasManyThing{hasManyThing1, HasManyThing2, hasManyThing3}
+	thing.ManyToMany = []*ManyToManyThing{manyToManyThing1, ManyToManyThing2, manyToManyThing3}
+	return thing
 }
 
 func (s *PluginSuite) SetupSuite() {
