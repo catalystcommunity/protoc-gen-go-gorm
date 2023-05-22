@@ -51,6 +51,7 @@ jobs:
     - name: Get semver-tags
       run: |
         go install github.com/catalystsquad/semver-tags@latest
+        semver-tags -h
     - name: Semver Tags Dry Run
       id: semver-tags
       run: |
