@@ -28,6 +28,10 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: "1.20"
+      - name: Create executable
+        shell: bash
+        run: |
+          go build -race
       - name: Get semver-tags
         run: |
           go install github.com/catalystsquad/semver-tags@latest

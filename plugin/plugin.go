@@ -28,7 +28,7 @@ type Builder struct {
 const protoTimestampTypeGoName = "Timestamp"
 const gormModelTimestampType = "time.Time"
 
-// I can't find where the constant is for this in protogen, so I'm putting it here
+// I can't find where the constant is for this in protogen, so I'm putting it here.
 const SUPPORTS_OPTIONAL_FIELDS = 1
 
 var templateFuncs = map[string]any{
