@@ -78,6 +78,3 @@ jobs:
         echo "last_release_version: ${{ steps.semver-tags.outputs.last_release_version }}" || true
         echo "last_release_git_head: ${{ steps.semver-tags.outputs.last_release_git_head }}" || true
         echo "last_release_git_tag: ${{ steps.semver-tags.outputs.last_release_git_tag }}" || true
-        echo "dry_run: ${{ steps.semver-tags.outputs.dry_run }}" || true
-        echo "new_release_notes_json: ${{ steps.semver-tags.outputs.new_release_notes_json }}" || true
-        echo "new_release_notes: ${{ steps.semver-tags.outputs.new_release_notes }}" || true
