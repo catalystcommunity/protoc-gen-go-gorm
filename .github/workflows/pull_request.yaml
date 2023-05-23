@@ -52,6 +52,8 @@ jobs:
     steps:
     - uses: crazy-max/ghaction-dump-context@v1
     - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
     - name: Setup Go With Caching
       uses: actions/setup-go@v4
       with:
