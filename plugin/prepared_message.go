@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"fmt"
+	gorm "github.com/catalystsquad/protoc-gen-go-gorm/options"
 	"github.com/stoewer/go-strcase"
 	"google.golang.org/protobuf/compiler/protogen"
 )
@@ -10,12 +11,14 @@ type PreparedMessage struct {
 	*protogen.Message
 	*Model
 	PluginOptions
-	Ignore bool
+	Options *gorm.GormMessageOptions
+	Ignore  bool
 }
 
 func (pm *PreparedMessage) Parse() (err error) {
 	// parse options first
-	pm.Options = getMessageOptions(pm.Message)
+	options := getMessageOptions(pm.Message)
+	pm.Options = options
 	// set ignore
 	pm.Ignore = ignoreMessage(pm)
 	// if ignore then stop parsing and return, field should be ignored
@@ -39,7 +42,7 @@ func getTableNameFromMessage(message *protogen.Message) string {
 	if options != nil && options.Table != "" {
 		return options.Table
 	}
-	return fmt.Sprintf(`"%ss"`, strcase.SnakeCase(message.GoIdent.GoName))
+	return fmt.Sprintf(`%ss`, strcase.SnakeCase(message.GoIdent.GoName))
 }
 
 func prepareMessages(messages []*protogen.Message, opts PluginOptions) (preparedMessages []*PreparedMessage, err error) {

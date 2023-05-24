@@ -37,11 +37,13 @@ var templateFuncs = map[string]any{
 	"fieldGoIdent":          fieldGoIdent,
 	"gormModelName":         gormModelName,
 	"tableName":             tableName,
+	"emptyTag":              emptyTag,
 }
 
 var g *protogen.GeneratedFile
 
 func ApplyTemplate(gf *protogen.GeneratedFile, f *protogen.File, opts PluginOptions) (err error) {
+	g = gf
 	if err = headerTemplate.Execute(gf, tplHeader{
 		File: f,
 	}); err != nil {
@@ -124,7 +126,7 @@ func getMessageGormModelField(field *protogen.Field) (modelField string) {
 	fieldType := getMessageGormModelFieldType(field)
 	fieldTags := getFieldTags(field)
 	options := getFieldOptions(field)
-	if !isTimestampType(field) && options != nil {
+	if !isTimestamp(field) && options != nil {
 		if options.GetBelongsTo() != nil {
 			modelField = getGormModelFieldBelongsToField(field)
 		}
@@ -181,7 +183,7 @@ func getPrimitiveGormModelFieldType(field *protogen.Field) (fieldType string) {
 func getMessageGormModelFieldType(field *protogen.Field) (fieldType string) {
 	pointer := pointer(field)
 	goType := gormModelName(field.Message)
-	if isTimestampType(field) {
+	if isTimestamp(field) {
 		g.QualifiedGoIdent(protogen.GoIdent{
 			GoName:       "",
 			GoImportPath: "time",
@@ -212,7 +214,7 @@ func getGormFieldTag(field *protogen.Field) string {
 	tag := "gorm:\""
 	if isIdField(field) {
 		tag += "type:uuid;primaryKey;default:gen_random_uuid();"
-	} else if isTimestampType(field) {
+	} else if isTimestamp(field) {
 		tag += "default:now();"
 	} else if isRepeated(field) && !isMessage(field) {
 		tag += fmt.Sprintf("type:%s;", gormTagTypeMap[fieldKind(field)])
@@ -243,7 +245,7 @@ func gormModelToProtoField(field *protogen.Field) string {
 	return getGormModelToProtoPrimitiveField(field)
 	//fieldName := fieldGoName(field)
 	//fieldType := fieldGoType(field)
-	//if isTimestampType(field) {
+	//if isTimestamp(field) {
 	//	return fmt.Sprintf(`if m.%s != nil {
 	//		theProto.%s = timestamppb.New(lo.FromPtr(m.%s))
 	//	}`, fieldName, fieldName, fieldName)
@@ -268,7 +270,7 @@ func gormModelToProtoField(field *protogen.Field) string {
 
 func getGormModelToProtoMessageField(field *protogen.Field) string {
 	fieldName := fieldGoName(field)
-	if isTimestampType(field) {
+	if isTimestamp(field) {
 		g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "github.com/samber/lo"})
 		return fmt.Sprintf(`if m.%s != nil {
 			theProto.%s = timestamppb.New(lo.FromPtr(m.%s))
@@ -294,7 +296,7 @@ func getGormModelToProtoPrimitiveField(field *protogen.Field) string {
 
 func protoToGormModelField(field *protogen.Field) string {
 	fieldName := fieldGoName(field)
-	if isTimestampType(field) {
+	if isTimestamp(field) {
 		return fmt.Sprintf(`if m.%s != nil {
 			theModel.%s = lo.ToPtr(m.%s.AsTime())
 		}`, fieldName, fieldName, fieldName)
@@ -434,8 +436,8 @@ var goTypeMap = map[protoreflect.Kind]string{
 	protoreflect.BytesKind:  "[]byte",
 }
 
-func isTimestampType(field *protogen.Field) bool {
-	return isMessage(field) && field.Message != nil && field.Message.GoIdent.GoName == protoTimestampTypeGoName
+func isTimestamp(field *protogen.Field) bool {
+	return field.Message != nil && field.Message.Desc.FullName() == "google.protobuf.Timestamp"
 }
 
 func fileIsSupported(file *protogen.File) (err error) {
@@ -516,4 +518,8 @@ func tableName(message *protogen.Message) string {
 		return options.Table
 	}
 	return fmt.Sprintf(`"%ss"`, strcase.SnakeCase(message.GoIdent.GoName))
+}
+
+func emptyTag() string {
+	return "``"
 }

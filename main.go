@@ -16,7 +16,6 @@ var (
 func main() {
 	flag.Parse()
 	defer glog.Flush()
-
 	protogen.Options{
 		ParamFunc: flag.CommandLine.Set,
 	}.Run(func(gp *protogen.Plugin) error {

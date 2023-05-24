@@ -1,7 +1,6 @@
 package plugin
 
 import (
-	gorm "github.com/catalystsquad/protoc-gen-go-gorm/options"
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
@@ -10,12 +9,9 @@ type Model struct {
 	Name      string
 	TableName string
 	Fields    []*ModelField
-	Options   *gorm.GormMessageOptions
 }
 
 func (m *Model) Parse() (err error) {
-	// parse options first
-	m.Options = getMessageOptions(m.Message)
 	m.Name = getModelNameFromMessage(m.Message)
 	m.TableName = getTableNameFromMessage(m.Message)
 	m.Fields = []*ModelField{}
