@@ -215,7 +215,9 @@ func getGormFieldTag(field *protogen.Field) string {
 	if isIdField(field) {
 		tag += "type:uuid;primaryKey;default:gen_random_uuid();"
 	} else if isTimestamp(field) {
-		tag += "default:now();"
+		tag += "type:timestamp;default:now();"
+	} else if isStructPb(field) {
+		tag += fmt.Sprintf("type:jsonb")
 	} else if isRepeated(field) && !isMessage(field) {
 		tag += fmt.Sprintf("type:%s;", gormTagTypeMap[fieldKind(field)])
 	}
@@ -437,7 +439,8 @@ var goTypeMap = map[protoreflect.Kind]string{
 }
 
 func isTimestamp(field *protogen.Field) bool {
-	return field.Message != nil && field.Message.Desc.FullName() == "google.protobuf.Timestamp"
+	fieldName := strings.Replace(strings.Replace(strings.ToLower(field.GoName), "_", "", -1), "-", "", -1)
+	return fieldName == "createdat" || fieldName == "updatedat" || fieldName == "deletedat"
 }
 
 func fileIsSupported(file *protogen.File) (err error) {

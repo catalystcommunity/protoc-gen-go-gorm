@@ -4,9 +4,10 @@
 package example
 
 import (
+	json "encoding/json"
+	pgtype "github.com/jackc/pgtype"
 	pq "github.com/lib/pq"
 	lo "github.com/samber/lo"
-	structpb "google.golang.org/protobuf/types/known/structpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	time "time"
 )
@@ -17,10 +18,10 @@ type ThingGormModel struct {
 	Id *string `gorm:"type:uuid;primaryKey;default:gen_random_uuid();" json:"id" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	CreatedAt *time.Time `gorm:"default:now();" json:"createdAt" fake:"skip"`
+	CreatedAt *time.Time `gorm:"type:timestamp;default:now();" json:"createdAt" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	UpdatedAt *time.Time `gorm:"default:now();" json:"updatedAt" fake:"skip"`
+	UpdatedAt *time.Time `gorm:"type:timestamp;default:now();" json:"updatedAt" fake:"skip"`
 
 	// @gotags: fake:"{price:0.00,1000.00}"
 	ADouble float64 `json:"aDouble" fake:"{price:0.00,1000.00}"`
@@ -68,7 +69,7 @@ type ThingGormModel struct {
 	OptionalScalarField *string `json:"optionalScalarField" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	AStructpb *map[string]interface{} `json:"aStructpb" fake:"skip"`
+	AStructpb *pgtype.JSONB `gorm:"type:jsonb" json:"aStructpb" fake:"skip"`
 
 	BelongsToId *string ``
 
@@ -136,7 +137,11 @@ func (m *ThingGormModel) ToProto() (theProto *Thing, err error) {
 	theProto.OptionalScalarField = m.OptionalScalarField
 
 	if m.AStructpb != nil {
-		if theProto.AStructpb, err = structpb.NewStruct(*m.AStructpb); err != nil {
+		var jsonBytes []byte
+		if jsonBytes, err = json.Marshal(m.AStructpb); err != nil {
+			return
+		}
+		if err = json.Unmarshal(jsonBytes, &theProto.AStructpb); err != nil {
 			return
 		}
 	}
@@ -152,7 +157,8 @@ func (m *ThingGormModel) ToProto() (theProto *Thing, err error) {
 	if len(m.HasMany) > 0 {
 		theProto.HasMany = []*HasManyThing{}
 		for _, item := range m.HasMany {
-			if HasManyProto, err := item.ToProto(); err != nil {
+			var HasManyProto *HasManyThing
+			if HasManyProto, err = item.ToProto(); err != nil {
 				return
 			} else {
 				theProto.HasMany = append(theProto.HasMany, HasManyProto)
@@ -163,7 +169,8 @@ func (m *ThingGormModel) ToProto() (theProto *Thing, err error) {
 	if len(m.ManyToMany) > 0 {
 		theProto.ManyToMany = []*ManyToManyThing{}
 		for _, item := range m.ManyToMany {
-			if ManyToManyProto, err := item.ToProto(); err != nil {
+			var ManyToManyProto *ManyToManyThing
+			if ManyToManyProto, err = item.ToProto(); err != nil {
 				return
 			} else {
 				theProto.ManyToMany = append(theProto.ManyToMany, ManyToManyProto)
@@ -221,7 +228,13 @@ func (p *Thing) ToModel() (theModel *ThingGormModel, err error) {
 	theModel.OptionalScalarField = p.OptionalScalarField
 
 	if p.AStructpb != nil {
-		theModel.AStructpb = lo.ToPtr(p.AStructpb.AsMap())
+		var jsonBytes []byte
+		if jsonBytes, err = json.Marshal(p.AStructpb); err != nil {
+			return
+		}
+		if err = json.Unmarshal(jsonBytes, &theModel.AStructpb); err != nil {
+			return
+		}
 	}
 
 	if theModel.BelongsTo, err = p.BelongsTo.ToModel(); err != nil {
@@ -235,7 +248,8 @@ func (p *Thing) ToModel() (theModel *ThingGormModel, err error) {
 	if len(p.HasMany) > 0 {
 		theModel.HasMany = []*HasManyThingGormModel{}
 		for _, item := range p.HasMany {
-			if HasManyModel, err := item.ToModel(); err != nil {
+			var HasManyModel *HasManyThingGormModel
+			if HasManyModel, err = item.ToModel(); err != nil {
 				return
 			} else {
 				theModel.HasMany = append(theModel.HasMany, HasManyModel)
@@ -246,7 +260,8 @@ func (p *Thing) ToModel() (theModel *ThingGormModel, err error) {
 	if len(p.ManyToMany) > 0 {
 		theModel.ManyToMany = []*ManyToManyThingGormModel{}
 		for _, item := range p.ManyToMany {
-			if ManyToManyModel, err := item.ToModel(); err != nil {
+			var ManyToManyModel *ManyToManyThingGormModel
+			if ManyToManyModel, err = item.ToModel(); err != nil {
 				return
 			} else {
 				theModel.ManyToMany = append(theModel.ManyToMany, ManyToManyModel)
@@ -263,10 +278,10 @@ type BelongsToThingGormModel struct {
 	Id *string `gorm:"type:uuid;primaryKey;default:gen_random_uuid();" json:"id" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	CreatedAt *time.Time `gorm:"default:now();" json:"createdAt" fake:"skip"`
+	CreatedAt *time.Time `gorm:"type:timestamp;default:now();" json:"createdAt" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	UpdatedAt *time.Time `gorm:"default:now();" json:"updatedAt" fake:"skip"`
+	UpdatedAt *time.Time `gorm:"type:timestamp;default:now();" json:"updatedAt" fake:"skip"`
 
 	// @gotags: fake:"{name}"
 	Name string `json:"name" fake:"{name}"`
@@ -324,10 +339,10 @@ type HasOneThingGormModel struct {
 	Id *string `gorm:"type:uuid;primaryKey;default:gen_random_uuid();" json:"id" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	CreatedAt *time.Time `gorm:"default:now();" json:"createdAt" fake:"skip"`
+	CreatedAt *time.Time `gorm:"type:timestamp;default:now();" json:"createdAt" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	UpdatedAt *time.Time `gorm:"default:now();" json:"updatedAt" fake:"skip"`
+	UpdatedAt *time.Time `gorm:"type:timestamp;default:now();" json:"updatedAt" fake:"skip"`
 
 	// @gotags: fake:"{name}"
 	Name string `json:"name" fake:"{name}"`
@@ -392,10 +407,10 @@ type HasManyThingGormModel struct {
 	Id *string `gorm:"type:uuid;primaryKey;default:gen_random_uuid();" json:"id" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	CreatedAt *time.Time `gorm:"default:now();" json:"createdAt" fake:"skip"`
+	CreatedAt *time.Time `gorm:"type:timestamp;default:now();" json:"createdAt" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	UpdatedAt *time.Time `gorm:"default:now();" json:"updatedAt" fake:"skip"`
+	UpdatedAt *time.Time `gorm:"type:timestamp;default:now();" json:"updatedAt" fake:"skip"`
 
 	// @gotags: fake:"{name}"
 	Name string `json:"name" fake:"{name}"`
@@ -460,10 +475,10 @@ type ManyToManyThingGormModel struct {
 	Id *string `gorm:"type:uuid;primaryKey;default:gen_random_uuid();" json:"id" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	CreatedAt *time.Time `gorm:"default:now();" json:"createdAt" fake:"skip"`
+	CreatedAt *time.Time `gorm:"type:timestamp;default:now();" json:"createdAt" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	UpdatedAt *time.Time `gorm:"default:now();" json:"updatedAt" fake:"skip"`
+	UpdatedAt *time.Time `gorm:"type:timestamp;default:now();" json:"updatedAt" fake:"skip"`
 
 	// @gotags: fake:"{name}"
 	Name string `json:"name" fake:"{name}"`

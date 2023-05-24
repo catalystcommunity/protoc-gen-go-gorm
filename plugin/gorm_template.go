@@ -29,7 +29,11 @@ func (m *{{ .Model.Name }}) ToProto() (theProto *{{.GoIdent.GoName}}, err error)
 	}
     {{ else if .IsStructPb }}
 	if m.{{ .GoName }} != nil {
-		if theProto.{{ .GoName }}, err = structpb.NewStruct(*m.{{ .GoName }}); err != nil {
+		var jsonBytes []byte
+		if jsonBytes, err = json.Marshal(m.{{ .GoName }}); err != nil {
+			return
+		}
+		if err = json.Unmarshal(jsonBytes, &theProto.{{ .GoName }}); err != nil {
 			return
 		}
 	}
@@ -41,7 +45,8 @@ func (m *{{ .Model.Name }}) ToProto() (theProto *{{.GoIdent.GoName}}, err error)
 	if len(m.{{ .GoName }}) > 0 {
 		theProto.{{ .GoName }} = []*{{ .Message.Desc.Name }}{}
         for _, item := range m.{{ .GoName }} {
-			if {{ .GoName }}Proto, err := item.ToProto(); err != nil {
+			var {{ .GoName }}Proto *{{ .Message.GoIdent.GoName }}
+			if {{ .GoName }}Proto, err = item.ToProto(); err != nil {
 				return 
 			} else {
 				theProto.{{ .GoName }} = append(theProto.{{ .GoName }}, {{ .GoName }}Proto)
@@ -67,7 +72,13 @@ func (p *{{.GoIdent.GoName}}) ToModel() (theModel *{{ .Model.Name }}, err error)
 	}
     {{ else if .IsStructPb }}
 	if p.{{ .GoName }} != nil {
-		theModel.{{ .GoName }} = lo.ToPtr(p.{{ .GoName }}.AsMap())
+		var jsonBytes []byte
+		if jsonBytes, err = json.Marshal(p.{{ .GoName }}); err != nil {
+			return
+		}
+		if err = json.Unmarshal(jsonBytes, &theModel.{{ .GoName }}); err != nil {
+			return
+		}
 	}
 	{{ else if and .IsMessage (eq .IsRepeated false) }}
 	if theModel.{{ .GoName }}, err = p.{{ .GoName }}.ToModel(); err != nil {
@@ -77,7 +88,8 @@ func (p *{{.GoIdent.GoName}}) ToModel() (theModel *{{ .Model.Name }}, err error)
 	if len(p.{{ .GoName }}) > 0 {
 		theModel.{{ .GoName }} = {{ .ModelType }}{}
         for _, item := range p.{{ .GoName }} {
-			if {{ .GoName }}Model, err := item.ToModel(); err != nil {
+			var {{ .GoName }}Model {{ .ModelSingularType }}
+			if {{ .GoName }}Model, err = item.ToModel(); err != nil {
 				return 
 			} else {
 				theModel.{{ .GoName }} = append(theModel.{{ .GoName }}, {{ .GoName }}Model)
