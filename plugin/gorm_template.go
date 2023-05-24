@@ -1,35 +1,38 @@
 package plugin
 
-const GormTemplate = `
-type {{ gormModelName .message }} struct {
-	{{- range .message.Fields }}
-    {{ gormModelField . -}}
+import "text/template"
+
+var messageTemplate = template.Must(template.New("message").Parse(`
+type {{ .Model.Name }} struct {
+	{{- range Model.Fields }}
+    {{ .Comments -}}
+    {{ .GoIdent.GoName }} {{ .ModelType }} {{ .Tag -}}
 	{{ end }}
 }
 
-func (m *{{ gormModelName .message }}) TableName() string {
-	return {{ tableName .message }}
+func (m *{{ .Model.Name }}) TableName() string {
+	return "{{ .Model.TableName }}"
 }
 
-func (m *{{ gormModelName .message }}) ToProto() *{{ protoMessageName .message }} {
+func (m *{{ .Model.Name }}) ToProto() *{{.GoIdent.GoName}} {
 	if m == nil {
 		return nil
 	}
-	theProto := &{{ protoMessageName .message }}{}
-	{{- range .message.Fields }}
-    {{ gormModelToProtoField . -}}
+	theProto := &{{.GoIdent.GoName}}{}
+	{{- range Model.Fields }}
+    theProto.{{ .GoIdent.GoName }} = m.{{ .GoIdent.GoName }}
 	{{ end }}
 	return theProto
 }
 
-func (m *{{ protoMessageName .message }}) ToGormModel() *{{ gormModelName .message }} {
+func (m *{{.GoIdent.GoName}}) ToGormModel() *{{ .Name }} {
 	if m == nil {
 		return nil
 	}
-	theModel := &{{ gormModelName .message }}{}
-	{{- range .message.Fields }}
-	{{ protoToGormModelField . -}}
+	theModel := &{{ .Name }}{}
+	{{- range Model.Fields }}
+    theModel.{{ .GoIdent.GoName }} = m.{{ .GoIdent.GoName }}
 	{{ end }}
 	return theModel
 }
-`
+`))

@@ -4,8 +4,10 @@ go 1.20
 
 require (
 	github.com/brianvoe/gofakeit/v6 v6.21.0
+	github.com/golang/glog v1.1.1
 	github.com/google/go-cmp v0.5.9
 	github.com/lib/pq v1.10.8
+	github.com/mitchellh/protoc-gen-go-json v1.1.0
 	github.com/orlangure/gnomock v0.28.0
 	github.com/samber/lo v1.38.1
 	github.com/stoewer/go-strcase v1.3.0
