@@ -30,16 +30,19 @@ func TestPluginSuite(t *testing.T) {
 }
 
 func (s *PluginSuite) TestPlugin() {
-	thing := s.getPopulatedThing()
-	thingModel := thing.ToGormModel()
-	err := db.Create(&thingModel).Error
+	thing, err := s.getPopulatedThing()
+	require.NoError(s.T(), err)
+	thingModel, err := thing.ToModel()
+	require.NoError(s.T(), err)
+	err = db.Create(&thingModel).Error
 	require.NoError(s.T(), err)
 	var firstThingModel *ThingGormModel
 	var firstThingProto *Thing
 	err = db.Joins("BelongsTo").Joins("HasOne").Preload(clause.Associations).First(&firstThingModel).Error
 	require.NoError(s.T(), err)
 	assertModelsEquality(s.T(), thingModel, firstThingModel)
-	firstThingProto = firstThingModel.ToProto()
+	firstThingProto, err = firstThingModel.ToProto()
+	require.NoError(s.T(), err)
 	assertProtosEquality(s.T(), thing, firstThingProto)
 }
 
@@ -54,6 +57,7 @@ func assertModelsEquality(t *testing.T, expected, actual interface{}) {
 		cmpopts.SortSlices(func(x, y *ManyToManyThingGormModel) bool {
 			return x.Name < y.Name
 		}),
+		cmpopts.IgnoreFields(ThingGormModel{}, "AStructpb"),
 	))
 }
 
@@ -80,9 +84,8 @@ func assertProtosEquality(t *testing.T, expected, actual interface{}, ignoreFiel
 	)
 }
 
-func (s *PluginSuite) getPopulatedThing() *Thing {
-	var err error
-	thing := &Thing{}
+func (s *PluginSuite) getPopulatedThing() (thing *Thing, err error) {
+	thing = &Thing{}
 	belongsToThing := &BelongsToThing{}
 	hasOneThing := &HasOneThing{}
 	hasManyThing1, HasManyThing2, hasManyThing3 := &HasManyThing{}, &HasManyThing{}, &HasManyThing{}
@@ -109,7 +112,11 @@ func (s *PluginSuite) getPopulatedThing() *Thing {
 	thing.HasOne = hasOneThing
 	thing.HasMany = []*HasManyThing{hasManyThing1, HasManyThing2, hasManyThing3}
 	thing.ManyToMany = []*ManyToManyThing{manyToManyThing1, ManyToManyThing2, manyToManyThing3}
-	return thing
+	theMap := gofakeit.Map()
+	bytes, err := json.Marshal(theMap)
+	err = json.Unmarshal(bytes, &thing.AStructpb)
+	require.NoError(s.T(), err)
+	return
 }
 
 func (s *PluginSuite) SetupSuite() {

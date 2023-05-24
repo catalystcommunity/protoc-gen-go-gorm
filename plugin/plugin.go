@@ -1,28 +1,24 @@
 package plugin
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	gorm "github.com/catalystsquad/protoc-gen-go-gorm/options"
+	"github.com/golang/glog"
 	"github.com/stoewer/go-strcase"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/descriptorpb"
-	"google.golang.org/protobuf/types/pluginpb"
 	"strings"
-	"text/template"
 )
 
-type Builder struct {
-	plugin         *protogen.Plugin
-	messages       map[string]struct{}
-	currentFile    string
-	currentPackage string
-	dbEngine       int
-	stringEnums    bool
-	suppressWarn   bool
+type tplHeader struct {
+	*protogen.File
+}
+
+type PluginOptions struct {
+	EnumsAsInts bool
 }
 
 const protoTimestampTypeGoName = "Timestamp"
@@ -41,64 +37,61 @@ var templateFuncs = map[string]any{
 	"fieldGoIdent":          fieldGoIdent,
 	"gormModelName":         gormModelName,
 	"tableName":             tableName,
+	"emptyTag":              emptyTag,
 }
 
 var g *protogen.GeneratedFile
 
-func (b *Builder) Generate() (response *pluginpb.CodeGeneratorResponse, err error) {
-	for _, protoFile := range b.plugin.Files {
-		// make sure all field types are supported
-		if err = fileIsSupported(protoFile); err != nil {
-			return
-		}
-		// template the proto file
-		if err = b.handleFile(protoFile); err != nil {
-			return
-		}
+func ApplyTemplate(gf *protogen.GeneratedFile, f *protogen.File, opts PluginOptions) (err error) {
+	g = gf
+	if err = headerTemplate.Execute(gf, tplHeader{
+		File: f,
+	}); err != nil {
+		return
 	}
-	// no errors, set and return the response
-	response = b.plugin.Response()
-	return
+	var preparedMessages []*PreparedMessage
+	if preparedMessages, err = prepareMessages(f.Messages, opts); err != nil {
+		return
+	}
+	return applyMessages(gf, preparedMessages)
 }
 
-func (b *Builder) handleFile(file *protogen.File) (err error) {
-	if fileHasOrmableMessages(file) {
-		// create new generated file
-		g = b.plugin.NewGeneratedFile(fileName(file), ".")
-		outputPackage(file)
-		for _, message := range file.Messages {
-			if err = handleMessage(message); err != nil {
-				return
-			}
+func applyMessages(gf *protogen.GeneratedFile, messages []*PreparedMessage) (err error) {
+	for _, m := range messages {
+		glog.V(2).Infof("Processing %s", m.GoIdent.GoName)
+		if err := messageTemplate.Execute(gf, m); err != nil {
+			return err
 		}
 	}
-	return
+	return nil
 }
 
-func outputPackage(file *protogen.File) {
-	g.P(fmt.Sprintf("package %s", file.GoPackageName))
-}
+//func handleMessage(message *protogen.Message) (err error) {
+//	if messageIsOrmable(message) {
+//		var tpl *template.Template
+//		var buffer bytes.Buffer
+//		// create template and parse template file
+//		if tpl, err = template.New("gorm").Funcs(templateFuncs).Parse(messageTemplate); err != nil {
+//			return
+//		}
+//		// execute template
+//		data := map[string]interface{}{"message": message}
+//		if err = tpl.Execute(&buffer, data); err != nil {
+//			return
+//		}
+//		// write the templated buffer to the generated file
+//		if _, err = g.Write(buffer.Bytes()); err != nil {
+//			return
+//		}
+//	}
+//
+//	return
+//}
 
-func handleMessage(message *protogen.Message) (err error) {
-	if messageIsOrmable(message) {
-		var tpl *template.Template
-		var buffer bytes.Buffer
-		// create template and parse template file
-		if tpl, err = template.New("gorm").Funcs(templateFuncs).Parse(GormTemplate); err != nil {
-			return
-		}
-		// execute template
-		data := map[string]interface{}{"message": message}
-		if err = tpl.Execute(&buffer, data); err != nil {
-			return
-		}
-		// write the templated buffer to the generated file
-		if _, err = g.Write(buffer.Bytes()); err != nil {
-			return
-		}
+func getModel(message *protogen.Message) Model {
+	return Model{
+		Name: message.GoIdent.GoName,
 	}
-
-	return
 }
 
 func fileName(file *protogen.File) string {
@@ -133,7 +126,7 @@ func getMessageGormModelField(field *protogen.Field) (modelField string) {
 	fieldType := getMessageGormModelFieldType(field)
 	fieldTags := getFieldTags(field)
 	options := getFieldOptions(field)
-	if !isTimestampType(field) && options != nil {
+	if !isTimestamp(field) && options != nil {
 		if options.GetBelongsTo() != nil {
 			modelField = getGormModelFieldBelongsToField(field)
 		}
@@ -190,7 +183,7 @@ func getPrimitiveGormModelFieldType(field *protogen.Field) (fieldType string) {
 func getMessageGormModelFieldType(field *protogen.Field) (fieldType string) {
 	pointer := pointer(field)
 	goType := gormModelName(field.Message)
-	if isTimestampType(field) {
+	if isTimestamp(field) {
 		g.QualifiedGoIdent(protogen.GoIdent{
 			GoName:       "",
 			GoImportPath: "time",
@@ -221,8 +214,10 @@ func getGormFieldTag(field *protogen.Field) string {
 	tag := "gorm:\""
 	if isIdField(field) {
 		tag += "type:uuid;primaryKey;default:gen_random_uuid();"
-	} else if isTimestampType(field) {
-		tag += "default:now();"
+	} else if isTimestamp(field) {
+		tag += "type:timestamp;default:now();"
+	} else if isStructPb(field) {
+		tag += fmt.Sprintf("type:jsonb")
 	} else if isRepeated(field) && !isMessage(field) {
 		tag += fmt.Sprintf("type:%s;", gormTagTypeMap[fieldKind(field)])
 	}
@@ -252,7 +247,7 @@ func gormModelToProtoField(field *protogen.Field) string {
 	return getGormModelToProtoPrimitiveField(field)
 	//fieldName := fieldGoName(field)
 	//fieldType := fieldGoType(field)
-	//if isTimestampType(field) {
+	//if isTimestamp(field) {
 	//	return fmt.Sprintf(`if m.%s != nil {
 	//		theProto.%s = timestamppb.New(lo.FromPtr(m.%s))
 	//	}`, fieldName, fieldName, fieldName)
@@ -277,7 +272,7 @@ func gormModelToProtoField(field *protogen.Field) string {
 
 func getGormModelToProtoMessageField(field *protogen.Field) string {
 	fieldName := fieldGoName(field)
-	if isTimestampType(field) {
+	if isTimestamp(field) {
 		g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "github.com/samber/lo"})
 		return fmt.Sprintf(`if m.%s != nil {
 			theProto.%s = timestamppb.New(lo.FromPtr(m.%s))
@@ -303,7 +298,7 @@ func getGormModelToProtoPrimitiveField(field *protogen.Field) string {
 
 func protoToGormModelField(field *protogen.Field) string {
 	fieldName := fieldGoName(field)
-	if isTimestampType(field) {
+	if isTimestamp(field) {
 		return fmt.Sprintf(`if m.%s != nil {
 			theModel.%s = lo.ToPtr(m.%s.AsTime())
 		}`, fieldName, fieldName, fieldName)
@@ -369,30 +364,6 @@ func fieldGoIdent(field *protogen.Field) string {
 		return field.Message.GoIdent.String()
 	}
 	return ""
-}
-
-func New(opts protogen.Options, request *pluginpb.CodeGeneratorRequest) (*Builder, error) {
-	plugin, err := opts.New(request)
-	if err != nil {
-		return nil, err
-	}
-	plugin.SupportedFeatures = SUPPORTS_OPTIONAL_FIELDS
-	builder := &Builder{
-		plugin:   plugin,
-		messages: make(map[string]struct{}),
-	}
-
-	params := parseParameter(request.GetParameter())
-
-	if strings.EqualFold(params["enums"], "string") {
-		builder.stringEnums = true
-	}
-
-	if _, ok := params["quiet"]; ok {
-		builder.suppressWarn = true
-	}
-
-	return builder, nil
 }
 
 func parseParameter(param string) map[string]string {
@@ -467,8 +438,9 @@ var goTypeMap = map[protoreflect.Kind]string{
 	protoreflect.BytesKind:  "[]byte",
 }
 
-func isTimestampType(field *protogen.Field) bool {
-	return isMessage(field) && field.Message != nil && field.Message.GoIdent.GoName == protoTimestampTypeGoName
+func isTimestamp(field *protogen.Field) bool {
+	fieldName := strings.Replace(strings.Replace(strings.ToLower(field.GoName), "_", "", -1), "-", "", -1)
+	return fieldName == "createdat" || fieldName == "updatedat" || fieldName == "deletedat"
 }
 
 func fileIsSupported(file *protogen.File) (err error) {
@@ -549,4 +521,8 @@ func tableName(message *protogen.Message) string {
 		return options.Table
 	}
 	return fmt.Sprintf(`"%ss"`, strcase.SnakeCase(message.GoIdent.GoName))
+}
+
+func emptyTag() string {
+	return "``"
 }

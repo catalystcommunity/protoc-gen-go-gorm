@@ -6,6 +6,7 @@ option go_package = "github.com/catalystsquad/protoc-gen-go-gorm/example;example
 
 import "google/protobuf/timestamp.proto";
 import "options/gorm.proto";
+import "google/protobuf/struct.proto";
 
 message Thing {
   option (gorm.opts) = {ormable: true,};
@@ -46,13 +47,15 @@ message Thing {
   // @gotags: fake:"skip"
   optional string optional_scalar_field = 34;
   // @gotags: fake:"skip"
-  BelongsToThing belongs_to = 35 [(gorm.field).belongs_to = {}];
+  google.protobuf.Struct a_structpb = 35;
   // @gotags: fake:"skip"
-  HasOneThing has_one = 36 [(gorm.field).has_one = {}];
+  BelongsToThing belongs_to = 36 [(gorm.field).belongs_to = {}];
   // @gotags: fake:"skip"
-  repeated HasManyThing has_many = 37 [(gorm.field).has_many = {}];
+  HasOneThing has_one = 37 [(gorm.field).has_one = {}];
   // @gotags: fake:"skip"
-  repeated ManyToManyThing many_to_many = 38 [(gorm.field).many_to_many = {}];
+  repeated HasManyThing has_many = 38 [(gorm.field).has_many = {}];
+  // @gotags: fake:"skip"
+  repeated ManyToManyThing many_to_many = 39 [(gorm.field).many_to_many = {}];
 }
 
 message BelongsToThing {

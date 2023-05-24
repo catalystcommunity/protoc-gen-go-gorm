@@ -1,45 +1,50 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"github.com/catalystsquad/protoc-gen-go-gorm/plugin"
-	"io/ioutil"
-	"os"
-
+	"github.com/golang/glog"
 	"google.golang.org/protobuf/compiler/protogen"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/pluginpb"
 )
 
+var (
+	enumsAsInts = flag.Bool("enums_as_ints", false, "render enums as integers as opposed to strings")
+)
+
 func main() {
-	input, err := ioutil.ReadAll(os.Stdin)
-	if err != nil {
-		panic(err)
-	}
+	flag.Parse()
+	defer glog.Flush()
+	protogen.Options{
+		ParamFunc: flag.CommandLine.Set,
+	}.Run(func(gp *protogen.Plugin) error {
+		gp.SupportedFeatures = uint64(pluginpb.CodeGeneratorResponse_FEATURE_PROTO3_OPTIONAL)
+		opts := plugin.PluginOptions{
+			EnumsAsInts: *enumsAsInts,
+		}
 
-	var request pluginpb.CodeGeneratorRequest
-	err = proto.Unmarshal(input, &request)
-	if err != nil {
-		panic(err)
-	}
+		for _, name := range gp.Request.FileToGenerate {
+			f := gp.FilesByPath[name]
 
-	opts := protogen.Options{}
+			if len(f.Messages) == 0 {
+				glog.Infof("Skipping %s, no messages", name)
+				continue
+			}
 
-	builder, err := plugin.New(opts, &request)
-	if err != nil {
-		panic(err)
-	}
+			glog.Infof("Processing %s", name)
+			glog.Infof("Generating %s\n", fmt.Sprintf("%s.pb.gorm.go", f.GeneratedFilenamePrefix))
 
-	response, err := builder.Generate()
-	if err != nil {
-		panic(err)
-	}
+			gf := gp.NewGeneratedFile(fmt.Sprintf("%s.pb.gorm.go", f.GeneratedFilenamePrefix), f.GoImportPath)
 
-	out, err := proto.Marshal(response)
-	if err != nil {
-		panic(err)
-	}
-	if len(out) == -10 {
-	}
-	fmt.Print(string(out))
+			err := plugin.ApplyTemplate(gf, f, opts)
+			if err != nil {
+				gf.Skip()
+				gp.Error(err)
+				continue
+			}
+		}
+
+		return nil
+	})
 }

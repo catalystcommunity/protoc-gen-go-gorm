@@ -16,8 +16,8 @@ message GormFileOptions {
 
 // Validation rules applied at the message level
 extend google.protobuf.MessageOptions {
-    // ormable will cause orm code to be generated for this message/object
-    GormMessageOptions opts = 52119;
+  // ormable will cause orm code to be generated for this message/object
+  GormMessageOptions opts = 52119;
 }
 
 message GormMessageOptions {
@@ -35,7 +35,7 @@ enum AssociationType {
 
 // Field level specifications
 extend google.protobuf.FieldOptions {
-    GormFieldOptions field = 52119;
+  GormFieldOptions field = 52119;
 }
 
 message HasOneOptions {
@@ -119,11 +119,12 @@ message ManyToManyOptions {
 }
 
 message GormFieldOptions {
-    string gorm_tag = 1;
+  string gorm_tag = 1;
   oneof association {
     HasOneOptions has_one = 3;
     BelongsToOptions belongs_to = 4;
     HasManyOptions has_many = 5;
     ManyToManyOptions many_to_many = 6;
   }
+  bool ignore = 7;
 }
