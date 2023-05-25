@@ -73,6 +73,10 @@ message Thing {
   EnumOne int_enum = 40;
   // @gotags: fake:"{number:1,9}"
   EnumOne string_enum = 41 [(gorm.field).enum_as_string = true];
+  // @gotags: fake:"{number:1,9}"
+  repeated EnumOne int_enum_list = 42;
+  // @gotags: fake:"{number:1,9}"
+  repeated EnumOne string_enum_list = 43 [(gorm.field).enum_as_string = true];
 }
 
 message BelongsToThing {

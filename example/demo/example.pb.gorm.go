@@ -90,6 +90,12 @@ type ThingGormModel struct {
 
 	// @gotags: fake:"{number:1,9}"
 	StringEnum string `json:"stringEnum" fake:"{number:1,9}"`
+
+	// @gotags: fake:"{number:1,9}"
+	IntEnumList pq.Int32Array `gorm:"type:int[];" json:"intEnumList" fake:"{number:1,9}"`
+
+	// @gotags: fake:"{number:1,9}"
+	StringEnumList pq.StringArray `gorm:"type:int[];" json:"stringEnumList" fake:"{number:1,9}"`
 }
 
 func (m *ThingGormModel) TableName() string {
@@ -187,6 +193,20 @@ func (m *ThingGormModel) ToProto() (theProto *Thing, err error) {
 	theProto.IntEnum = EnumOne(m.IntEnum)
 
 	theProto.StringEnum = EnumOne(EnumOne_value[m.StringEnum])
+
+	if len(m.IntEnumList) > 0 {
+		theProto.IntEnumList = []EnumOne{}
+		for _, val := range m.IntEnumList {
+			theProto.IntEnumList = append(theProto.IntEnumList, EnumOne(val))
+		}
+	}
+
+	if len(m.StringEnumList) > 0 {
+		theProto.StringEnumList = []EnumOne{}
+		for _, val := range m.StringEnumList {
+			theProto.StringEnumList = append(theProto.StringEnumList, EnumOne(EnumOne_value[val]))
+		}
+	}
 
 	return
 }
@@ -286,6 +306,20 @@ func (p *Thing) ToModel() (theModel *ThingGormModel, err error) {
 	theModel.IntEnum = int(p.IntEnum)
 
 	theModel.StringEnum = p.StringEnum.String()
+
+	if len(p.IntEnumList) > 0 {
+		theModel.IntEnumList = pq.Int32Array{}
+		for _, val := range p.IntEnumList {
+			theModel.IntEnumList = append(theModel.IntEnumList, int32(val))
+		}
+	}
+
+	if len(p.StringEnumList) > 0 {
+		theModel.StringEnumList = pq.StringArray{}
+		for _, val := range p.StringEnumList {
+			theModel.StringEnumList = append(theModel.StringEnumList, val.String())
+		}
+	}
 
 	return
 }

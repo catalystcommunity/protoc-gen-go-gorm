@@ -68,6 +68,13 @@ func getModelFieldType(field *ModelField) string {
 	} else if field.IsMessage {
 		return getMessageGormModelFieldType(field.Field)
 	} else if field.Enum != nil {
+		if field.IsRepeated {
+			if field.Options.EnumAsString {
+				return "pq.StringArray"
+			} else {
+				return "pq.Int32Array"
+			}
+		}
 		if field.Options.EnumAsString {
 			return "string"
 		}
