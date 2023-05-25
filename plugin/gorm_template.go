@@ -24,9 +24,15 @@ func (m *{{ .Model.Name }}) ToProto() (theProto *{{.GoIdent.GoName}}, err error)
 	theProto = &{{.GoIdent.GoName}}{}
 	{{ range .Model.Fields }}
     {{ if .IsTimestamp }}
+    {{ if eq .Desc.Kind 9 }}
+	if m.{{ .GoName }} != nil {
+		theProto.{{ .GoName }} = m.{{ .GoName }}.Format(time.RFC3339Nano)
+	}
+    {{ else }}
     if m.{{ .GoName }} != nil {
 		theProto.{{ .GoName }} = timestamppb.New(*m.{{ .GoName }})
 	}
+    {{ end }}
     {{ else if .IsStructPb }}
 	if m.{{ .GoName }} != nil {
 		var jsonBytes []byte
@@ -73,9 +79,19 @@ func (p *{{.GoIdent.GoName}}) ToModel() (theModel *{{ .Model.Name }}, err error)
 	theModel = &{{ .Model.Name }}{}
 	{{ range .Model.Fields }}
     {{ if .IsTimestamp }}
+	{{ if eq .Desc.Kind 9 }}
+	if p.{{ .GoName }} != "" {
+		var timestamp time.Time
+		if timestamp, err = time.Parse(time.RFC3339Nano, p.{{ .GoName }}); err != nil {
+			return
+		}
+		theModel.{{ .GoName }} = &timestamp
+	}
+    {{ else }}
     if p.{{ .GoName }} != nil {
 		theModel.{{ .GoName }} = lo.ToPtr(p.{{ .GoName }}.AsTime())
 	}
+    {{ end }}
     {{ else if .IsStructPb }}
 	if p.{{ .GoName }} != nil {
 		var jsonBytes []byte

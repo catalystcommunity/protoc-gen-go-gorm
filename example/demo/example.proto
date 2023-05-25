@@ -28,7 +28,7 @@ message Thing {
   // @gotags: fake:"skip"
   google.protobuf.Timestamp created_at = 2;
   // @gotags: fake:"skip"
-  google.protobuf.Timestamp updated_at = 3;
+  string updated_at = 3;
   // @gotags: fake:"{price:0.00,1000.00}"
   double a_double = 4;
   // @gotags: fake:"{price:0.00,1000.00}"
