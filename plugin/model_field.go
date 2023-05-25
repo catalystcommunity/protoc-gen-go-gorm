@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"fmt"
 	gorm "github.com/catalystsquad/protoc-gen-go-gorm/options"
 	"google.golang.org/protobuf/compiler/protogen"
 	"strings"
@@ -8,17 +9,18 @@ import (
 
 type ModelField struct {
 	*protogen.Field
-	ModelType         string
-	ModelSingularType string
-	Tag               string
-	Options           *gorm.GormFieldOptions
-	IsMessage         bool
-	IsRepeated        bool
-	IsTimestamp       bool
-	IsStructPb        bool
-	Comments          string
-	Ignore            bool
-	Name              string
+	ModelType                      string
+	ModelSingularType              string
+	Tag                            string
+	Options                        *gorm.GormFieldOptions
+	IsMessage                      bool
+	IsRepeated                     bool
+	IsTimestamp                    bool
+	IsStructPb                     bool
+	Comments                       string
+	Ignore                         bool
+	Name                           string
+	ShouldGenerateBelongsToIdField bool
 }
 
 func (f *ModelField) Parse() (err error) {
@@ -38,8 +40,29 @@ func (f *ModelField) Parse() (err error) {
 	f.Comments = f.Field.Comments.Leading.String() + f.Field.Comments.Trailing.String()
 	f.ModelType = getModelFieldType(f)
 	f.ModelSingularType = getModelFieldSingularType(f)
-	f.Tag = getFieldTags(f.Field)
+	f.Tag = getFieldTags(f)
+	f.ShouldGenerateBelongsToIdField = shouldGenerateBelongsToIdField(f)
 	return
+}
+
+func shouldGenerateBelongsToIdField(f *ModelField) bool {
+	options := f.Options
+	// no options or no belongs to means don't generate a belongs to field
+	if options == nil || options.GetBelongsTo() == nil {
+		return false
+	}
+	// there are belongs to options, loop through the fields and make sure there isn't one already
+	fieldName := options.GetBelongsTo().Foreignkey
+	g.P(fmt.Sprintf("// fieldName: %s", fieldName))
+	for _, field := range f.Parent.Fields {
+		g.P(fmt.Sprintf("// field.GoName: %s fieldName: %s", field.GoName, fieldName))
+		if field.GoName == fieldName {
+			// field is already on the message, don't generate a duplicate
+			return false
+		}
+	}
+	// belongs to id field doesn't exist, so generate it
+	return true
 }
 
 func getModelFieldSingularType(field *ModelField) (fieldType string) {

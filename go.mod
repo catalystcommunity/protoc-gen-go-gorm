@@ -12,7 +12,6 @@ require (
 	github.com/samber/lo v1.38.1
 	github.com/stoewer/go-strcase v1.3.0
 	github.com/stretchr/testify v1.8.3
-	github.com/tdewolff/minify/v2 v2.12.5
 	google.golang.org/protobuf v1.30.0
 	gorm.io/driver/postgres v1.5.2
 	gorm.io/gorm v1.25.1
@@ -40,7 +39,6 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rogpeppe/go-internal v1.8.1 // indirect
-	github.com/tdewolff/parse/v2 v2.6.5 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.7.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect

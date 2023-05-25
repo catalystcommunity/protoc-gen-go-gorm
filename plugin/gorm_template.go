@@ -5,8 +5,8 @@ import "text/template"
 var messageTemplate = template.Must(template.New("message").Funcs(templateFuncs).Parse(`
 type {{ .Model.Name }} struct {
 	{{- range .Model.Fields }}
-    {{ if .Options.GetBelongsTo }}
-    {{ .GoName }}Id *string {{ emptyTag }}
+    {{ if .ShouldGenerateBelongsToIdField }}
+    {{ .Options.GetBelongsTo.Foreignkey }} *string {{ emptyTag }}
     {{ end }}
     {{ .Comments -}}
     {{ .GoName }} {{ .ModelType }} {{ .Tag -}}

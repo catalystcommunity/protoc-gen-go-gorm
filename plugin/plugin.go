@@ -110,28 +110,28 @@ func fieldComments(field *protogen.Field) string {
 	return field.Comments.Leading.String() + field.Comments.Trailing.String()
 }
 
-func gormModelField(field *protogen.Field) string {
-	if isMessage(field) {
+func gormModelField(field *ModelField) string {
+	if isMessage(field.Field) {
 		return getMessageGormModelField(field)
 	}
 	return getPrimitiveGormModelField(field)
 }
 
-func getPrimitiveGormModelField(field *protogen.Field) string {
-	return fmt.Sprintf("%s%s %s %s", fieldComments(field), getPrimitiveGormModelFieldName(field), getPrimitiveGormModelFieldType(field), getFieldTags(field))
+func getPrimitiveGormModelField(field *ModelField) string {
+	return fmt.Sprintf("%s%s %s %s", fieldComments(field.Field), getPrimitiveGormModelFieldName(field.Field), getPrimitiveGormModelFieldType(field.Field), getFieldTags(field))
 }
 
-func getMessageGormModelField(field *protogen.Field) (modelField string) {
-	fieldName := getMessageGormModelFieldName(field)
-	fieldType := getMessageGormModelFieldType(field)
+func getMessageGormModelField(field *ModelField) (modelField string) {
+	fieldName := getMessageGormModelFieldName(field.Field)
+	fieldType := getMessageGormModelFieldType(field.Field)
 	fieldTags := getFieldTags(field)
-	options := getFieldOptions(field)
-	if !isTimestamp(field) && options != nil {
+	options := getFieldOptions(field.Field)
+	if !isTimestamp(field.Field) && options != nil {
 		if options.GetBelongsTo() != nil {
-			modelField = getGormModelFieldBelongsToField(field)
+			modelField = getGormModelFieldBelongsToField(field.Field)
 		}
 	}
-	modelField = fmt.Sprintf("%s%s%s %s %s", modelField, fieldComments(field), fieldName, fieldType, fieldTags)
+	modelField = fmt.Sprintf("%s%s%s %s %s", modelField, fieldComments(field.Field), fieldName, fieldType, fieldTags)
 	return
 }
 
@@ -206,27 +206,37 @@ func fieldKind(field *protogen.Field) protoreflect.Kind {
 	return field.Desc.Kind()
 }
 
-func getFieldTags(field *protogen.Field) string {
-	return fmt.Sprintf("`%s %s`", getGormFieldTag(field), getJsonFieldTag(field))
+func getFieldTags(field *ModelField) string {
+	return fmt.Sprintf("`%s %s`", getGormFieldTag(field), getJsonFieldTag(field.Field))
 }
 
-func getGormFieldTag(field *protogen.Field) string {
+func getGormFieldTag(field *ModelField) string {
 	tag := "gorm:\""
-	if isIdField(field) {
+	if isIdField(field.Field) {
 		tag += "type:uuid;primaryKey;default:gen_random_uuid();"
-	} else if isTimestamp(field) {
+	} else if isTimestamp(field.Field) {
 		tag += "type:timestamp;default:now();"
-	} else if isStructPb(field) {
+	} else if isStructPb(field.Field) {
 		tag += fmt.Sprintf("type:jsonb")
-	} else if isRepeated(field) && !isMessage(field) {
-		tag += fmt.Sprintf("type:%s;", gormTagTypeMap[fieldKind(field)])
+	} else if isRepeated(field.Field) && field.Enum != nil {
+		if field.Options.EnumAsString {
+			tag += "type:string[]"
+		} else {
+			tag += "type:int[]"
+		}
+	} else if isRepeated(field.Field) && !isMessage(field.Field) {
+		tag += fmt.Sprintf("type:%s;", gormTagTypeMap[fieldKind(field.Field)])
 	}
-	options := getFieldOptions(field)
+	options := getFieldOptions(field.Field)
 	if options != nil {
 		if options.GetHasOne() != nil || options.GetHasMany() != nil {
 			tag += fmt.Sprintf("foreignKey:%sId;", protoMessageName(field.Parent))
 		} else if options.GetManyToMany() != nil {
-			tag += fmt.Sprintf("many2many:%ss_%ss;", strings.ToLower(string(protoMessageName(field.Parent))), strings.ToLower(getMessageGormModelFieldName(field)))
+			tag += fmt.Sprintf("many2many:%ss_%ss;", strings.ToLower(string(protoMessageName(field.Parent))), strings.ToLower(getMessageGormModelFieldName(field.Field)))
+		} else if options.GetBelongsTo() != nil {
+			if options.GetBelongsTo().Foreignkey != "" {
+				tag = fmt.Sprintf("%sforeignKey:%s;", tag, options.GetBelongsTo().Foreignkey)
+			}
 		}
 	}
 	return tag + "\""
@@ -511,7 +521,9 @@ func getFieldOptions(field *protogen.Field) *gorm.GormFieldOptions {
 	if !ok {
 		return nil
 	}
-
+	if opts.GetBelongsTo() != nil && opts.GetBelongsTo().Foreignkey == "" {
+		opts.GetBelongsTo().Foreignkey = fmt.Sprintf("%sId", field.GoName)
+	}
 	return opts
 }
 

@@ -12,6 +12,85 @@ import (
 	time "time"
 )
 
+// fieldName: BelongsToId
+// field.GoName: Id fieldName: BelongsToId
+// field.GoName: CreatedAt fieldName: BelongsToId
+// field.GoName: UpdatedAt fieldName: BelongsToId
+// field.GoName: ADouble fieldName: BelongsToId
+// field.GoName: AFloat fieldName: BelongsToId
+// field.GoName: AnInt32 fieldName: BelongsToId
+// field.GoName: AnInt64 fieldName: BelongsToId
+// field.GoName: ABool fieldName: BelongsToId
+// field.GoName: AString fieldName: BelongsToId
+// field.GoName: ABytes fieldName: BelongsToId
+// field.GoName: Doubles fieldName: BelongsToId
+// field.GoName: Floats fieldName: BelongsToId
+// field.GoName: Int32S fieldName: BelongsToId
+// field.GoName: Int64S fieldName: BelongsToId
+// field.GoName: Bools fieldName: BelongsToId
+// field.GoName: Strings fieldName: BelongsToId
+// field.GoName: Bytess fieldName: BelongsToId
+// field.GoName: OptionalScalarField fieldName: BelongsToId
+// field.GoName: AStructpb fieldName: BelongsToId
+// field.GoName: BelongsTo fieldName: BelongsToId
+// field.GoName: BelongsToTwoId fieldName: BelongsToId
+// field.GoName: BelongsToTwo fieldName: BelongsToId
+// field.GoName: AnUnexpectedId fieldName: BelongsToId
+// field.GoName: BelongsToThree fieldName: BelongsToId
+// field.GoName: HasOne fieldName: BelongsToId
+// field.GoName: HasMany fieldName: BelongsToId
+// field.GoName: ManyToMany fieldName: BelongsToId
+// field.GoName: IntEnum fieldName: BelongsToId
+// field.GoName: StringEnum fieldName: BelongsToId
+// field.GoName: IntEnumList fieldName: BelongsToId
+// field.GoName: StringEnumList fieldName: BelongsToId
+// fieldName: BelongsToTwoId
+// field.GoName: Id fieldName: BelongsToTwoId
+// field.GoName: CreatedAt fieldName: BelongsToTwoId
+// field.GoName: UpdatedAt fieldName: BelongsToTwoId
+// field.GoName: ADouble fieldName: BelongsToTwoId
+// field.GoName: AFloat fieldName: BelongsToTwoId
+// field.GoName: AnInt32 fieldName: BelongsToTwoId
+// field.GoName: AnInt64 fieldName: BelongsToTwoId
+// field.GoName: ABool fieldName: BelongsToTwoId
+// field.GoName: AString fieldName: BelongsToTwoId
+// field.GoName: ABytes fieldName: BelongsToTwoId
+// field.GoName: Doubles fieldName: BelongsToTwoId
+// field.GoName: Floats fieldName: BelongsToTwoId
+// field.GoName: Int32S fieldName: BelongsToTwoId
+// field.GoName: Int64S fieldName: BelongsToTwoId
+// field.GoName: Bools fieldName: BelongsToTwoId
+// field.GoName: Strings fieldName: BelongsToTwoId
+// field.GoName: Bytess fieldName: BelongsToTwoId
+// field.GoName: OptionalScalarField fieldName: BelongsToTwoId
+// field.GoName: AStructpb fieldName: BelongsToTwoId
+// field.GoName: BelongsTo fieldName: BelongsToTwoId
+// field.GoName: BelongsToTwoId fieldName: BelongsToTwoId
+// fieldName: AnUnexpectedId
+// field.GoName: Id fieldName: AnUnexpectedId
+// field.GoName: CreatedAt fieldName: AnUnexpectedId
+// field.GoName: UpdatedAt fieldName: AnUnexpectedId
+// field.GoName: ADouble fieldName: AnUnexpectedId
+// field.GoName: AFloat fieldName: AnUnexpectedId
+// field.GoName: AnInt32 fieldName: AnUnexpectedId
+// field.GoName: AnInt64 fieldName: AnUnexpectedId
+// field.GoName: ABool fieldName: AnUnexpectedId
+// field.GoName: AString fieldName: AnUnexpectedId
+// field.GoName: ABytes fieldName: AnUnexpectedId
+// field.GoName: Doubles fieldName: AnUnexpectedId
+// field.GoName: Floats fieldName: AnUnexpectedId
+// field.GoName: Int32S fieldName: AnUnexpectedId
+// field.GoName: Int64S fieldName: AnUnexpectedId
+// field.GoName: Bools fieldName: AnUnexpectedId
+// field.GoName: Strings fieldName: AnUnexpectedId
+// field.GoName: Bytess fieldName: AnUnexpectedId
+// field.GoName: OptionalScalarField fieldName: AnUnexpectedId
+// field.GoName: AStructpb fieldName: AnUnexpectedId
+// field.GoName: BelongsTo fieldName: AnUnexpectedId
+// field.GoName: BelongsToTwoId fieldName: AnUnexpectedId
+// field.GoName: BelongsToTwo fieldName: AnUnexpectedId
+// field.GoName: AnUnexpectedId fieldName: AnUnexpectedId
+
 type ThingGormModel struct {
 
 	// @gotags: fake:"skip"
@@ -74,7 +153,19 @@ type ThingGormModel struct {
 	BelongsToId *string ``
 
 	// @gotags: fake:"skip"
-	BelongsTo *BelongsToThingGormModel `json:"belongsTo" fake:"skip"`
+	BelongsTo *BelongsToThingGormModel `gorm:"foreignKey:BelongsToId;" json:"belongsTo" fake:"skip"`
+
+	// @gotags: fake:"skip"
+	BelongsToTwoId string `json:"belongsToTwoId" fake:"skip"`
+
+	// @gotags: fake:"skip"
+	BelongsToTwo *BelongsToThingGormModel `gorm:"foreignKey:BelongsToTwoId;" json:"belongsToTwo" fake:"skip"`
+
+	// @gotags: fake:"skip"
+	AnUnexpectedId string `json:"anUnexpectedId" fake:"skip"`
+
+	// @gotags: fake:"skip"
+	BelongsToThree *BelongsToThingGormModel `gorm:"foreignKey:AnUnexpectedId;" json:"belongsToThree" fake:"skip"`
 
 	// @gotags: fake:"skip"
 	HasOne *HasOneThingGormModel `gorm:"foreignKey:ThingId;" json:"hasOne" fake:"skip"`
@@ -92,10 +183,10 @@ type ThingGormModel struct {
 	StringEnum string `json:"stringEnum" fake:"{number:1,9}"`
 
 	// @gotags: fake:"{number:1,9}"
-	IntEnumList pq.Int32Array `gorm:"type:int[];" json:"intEnumList" fake:"{number:1,9}"`
+	IntEnumList pq.Int32Array `gorm:"type:int[]" json:"intEnumList" fake:"{number:1,9}"`
 
 	// @gotags: fake:"{number:1,9}"
-	StringEnumList pq.StringArray `gorm:"type:int[];" json:"stringEnumList" fake:"{number:1,9}"`
+	StringEnumList pq.StringArray `gorm:"type:string[]" json:"stringEnumList" fake:"{number:1,9}"`
 }
 
 func (m *ThingGormModel) TableName() string {
@@ -159,6 +250,18 @@ func (m *ThingGormModel) ToProto() (theProto *Thing, err error) {
 	}
 
 	if theProto.BelongsTo, err = m.BelongsTo.ToProto(); err != nil {
+		return
+	}
+
+	theProto.BelongsToTwoId = m.BelongsToTwoId
+
+	if theProto.BelongsToTwo, err = m.BelongsToTwo.ToProto(); err != nil {
+		return
+	}
+
+	theProto.AnUnexpectedId = m.AnUnexpectedId
+
+	if theProto.BelongsToThree, err = m.BelongsToThree.ToProto(); err != nil {
 		return
 	}
 
@@ -272,6 +375,18 @@ func (p *Thing) ToModel() (theModel *ThingGormModel, err error) {
 	}
 
 	if theModel.BelongsTo, err = p.BelongsTo.ToModel(); err != nil {
+		return
+	}
+
+	theModel.BelongsToTwoId = p.BelongsToTwoId
+
+	if theModel.BelongsToTwo, err = p.BelongsToTwo.ToModel(); err != nil {
+		return
+	}
+
+	theModel.AnUnexpectedId = p.AnUnexpectedId
+
+	if theModel.BelongsToThree, err = p.BelongsToThree.ToModel(); err != nil {
 		return
 	}
 
