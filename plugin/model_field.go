@@ -67,6 +67,11 @@ func getModelFieldType(field *ModelField) string {
 		return "*pgtype.JSONB"
 	} else if field.IsMessage {
 		return getMessageGormModelFieldType(field.Field)
+	} else if field.Enum != nil {
+		if field.Options.EnumAsString {
+			return "string"
+		}
+		return "int"
 	} else {
 		return getPrimitiveGormModelFieldType(field.Field)
 	}

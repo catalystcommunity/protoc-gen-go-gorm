@@ -84,6 +84,12 @@ type ThingGormModel struct {
 
 	// @gotags: fake:"skip"
 	ManyToMany []*ManyToManyThingGormModel `gorm:"many2many:things_manytomanys;" json:"manyToMany" fake:"skip"`
+
+	// @gotags: fake:"{number:1,9}"
+	IntEnum int `json:"intEnum" fake:"{number:1,9}"`
+
+	// @gotags: fake:"{number:1,9}"
+	StringEnum string `json:"stringEnum" fake:"{number:1,9}"`
 }
 
 func (m *ThingGormModel) TableName() string {
@@ -178,6 +184,10 @@ func (m *ThingGormModel) ToProto() (theProto *Thing, err error) {
 		}
 	}
 
+	theProto.IntEnum = EnumOne(m.IntEnum)
+
+	theProto.StringEnum = EnumOne(EnumOne_value[m.StringEnum])
+
 	return
 }
 
@@ -268,6 +278,10 @@ func (p *Thing) ToModel() (theModel *ThingGormModel, err error) {
 			}
 		}
 	}
+
+	theModel.IntEnum = int(p.IntEnum)
+
+	theModel.StringEnum = p.StringEnum.String()
 
 	return
 }

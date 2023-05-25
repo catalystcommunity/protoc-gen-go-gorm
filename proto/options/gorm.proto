@@ -127,4 +127,5 @@ message GormFieldOptions {
     ManyToManyOptions many_to_many = 6;
   }
   bool ignore = 7;
+  bool enum_as_string = 8;
 }
