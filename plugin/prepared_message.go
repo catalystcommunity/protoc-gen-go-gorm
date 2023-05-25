@@ -61,5 +61,5 @@ func prepareMessages(messages []*protogen.Message, opts PluginOptions) (prepared
 }
 
 func ignoreMessage(pm *PreparedMessage) bool {
-	return pm.Options != nil && !pm.Options.Ormable
+	return pm.Options == nil || !pm.Options.Ormable
 }
