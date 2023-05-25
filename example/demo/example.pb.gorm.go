@@ -109,7 +109,7 @@ func (m *ThingGormModel) ToProto() (theProto *Thing, err error) {
 	}
 
 	if m.UpdatedAt != nil {
-		theProto.UpdatedAt = timestamppb.New(*m.UpdatedAt)
+		theProto.UpdatedAt = m.UpdatedAt.Format(time.RFC3339Nano)
 	}
 
 	theProto.ADouble = m.ADouble
@@ -203,8 +203,12 @@ func (p *Thing) ToModel() (theModel *ThingGormModel, err error) {
 		theModel.CreatedAt = lo.ToPtr(p.CreatedAt.AsTime())
 	}
 
-	if p.UpdatedAt != nil {
-		theModel.UpdatedAt = lo.ToPtr(p.UpdatedAt.AsTime())
+	if p.UpdatedAt != "" {
+		var timestamp time.Time
+		if timestamp, err = time.Parse(time.RFC3339Nano, p.UpdatedAt); err != nil {
+			return
+		}
+		theModel.UpdatedAt = &timestamp
 	}
 
 	theModel.ADouble = p.ADouble
