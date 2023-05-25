@@ -85,11 +85,11 @@ type ThingGormModel struct {
 	// @gotags: fake:"skip"
 	ManyToMany []*ManyToManyThingGormModel `gorm:"many2many:things_manytomanys;" json:"manyToMany" fake:"skip"`
 
-	// @gotags: fake:"{number:0,2}"
-	IntEnum int `json:"intEnum" fake:"{number:0,2}"`
+	// @gotags: fake:"{number:1,9}"
+	IntEnum int `json:"intEnum" fake:"{number:1,9}"`
 
-	// @gotags: fake:"{number:0,2}"
-	StringEnum string `json:"stringEnum" fake:"{number:0,2}"`
+	// @gotags: fake:"{number:1,9}"
+	StringEnum string `json:"stringEnum" fake:"{number:1,9}"`
 }
 
 func (m *ThingGormModel) TableName() string {
