@@ -70,14 +70,14 @@ func (m *{{ .Model.Name }}) ToProto() (theProto *{{.GoIdent.GoName}}, err error)
 	if len(m.{{ .GoName }}) > 0 {
 		theProto.{{ .GoName }} = []{{ .Enum.GoIdent.GoName }}{}
 		for _, val := range m.{{ .GoName }} {
-			theProto.{{ .GoName }} = append(theProto.{{ .GoName }}, EnumOne(EnumOne_value[val]))
+			theProto.{{ .GoName }} = append(theProto.{{ .GoName }}, {{ .Enum.GoIdent.GoName }}({{ .Enum.GoIdent.GoName }}_value[val]))
 		}
 	}
     {{ else }}
 	if len(m.{{ .GoName }}) > 0 {
 		theProto.{{ .GoName }} = []{{ .Enum.GoIdent.GoName }}{}
 		for _, val := range m.{{ .GoName }} {
-			theProto.{{ .GoName }} = append(theProto.{{ .GoName }}, EnumOne(val))
+			theProto.{{ .GoName }} = append(theProto.{{ .GoName }}, {{ .Enum.GoIdent.GoName }}(val))
 		}
 	}
     {{ end }}
