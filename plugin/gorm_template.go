@@ -5,8 +5,8 @@ import "text/template"
 var messageTemplate = template.Must(template.New("message").Funcs(templateFuncs).Parse(`
 type {{ .Model.Name }} struct {
 	{{- range .Model.Fields }}
-    {{ if .Options.GetBelongsTo }}
-    {{ .GoName }}Id *string {{ emptyTag }}
+    {{ if .ShouldGenerateBelongsToIdField }}
+    {{ .Options.GetBelongsTo.Foreignkey }} *string {{ emptyTag }}
     {{ end }}
     {{ .Comments -}}
     {{ .GoName }} {{ .ModelType }} {{ .Tag -}}
@@ -59,11 +59,27 @@ func (m *{{ .Model.Name }}) ToProto() (theProto *{{.GoIdent.GoName}}, err error)
 			}	
 		}
 	}
-    {{ else if .Enum }}
+    {{ else if and .Enum ( eq .IsRepeated false) }}
 	{{ if .Options.EnumAsString }}
 	theProto.{{ .GoName }} = {{ .Enum.GoIdent.GoName }}({{ .Enum.GoIdent.GoName }}_value[m.{{ .GoName }}])
     {{ else }}
 	theProto.{{ .GoName }} = {{ .Enum.GoIdent.GoName }}(m.{{ .GoName }})
+    {{ end }}
+	{{ else if and .Enum .IsRepeated }}
+	{{ if .Options.EnumAsString }}
+	if len(m.{{ .GoName }}) > 0 {
+		theProto.{{ .GoName }} = []{{ .Enum.GoIdent.GoName }}{}
+		for _, val := range m.{{ .GoName }} {
+			theProto.{{ .GoName }} = append(theProto.{{ .GoName }}, EnumOne(EnumOne_value[val]))
+		}
+	}
+    {{ else }}
+	if len(m.{{ .GoName }}) > 0 {
+		theProto.{{ .GoName }} = []{{ .Enum.GoIdent.GoName }}{}
+		for _, val := range m.{{ .GoName }} {
+			theProto.{{ .GoName }} = append(theProto.{{ .GoName }}, EnumOne(val))
+		}
+	}
     {{ end }}
     {{ else }}
     theProto.{{ .GoName }} = m.{{ .GoName }}
@@ -118,11 +134,27 @@ func (p *{{.GoIdent.GoName}}) ToModel() (theModel *{{ .Model.Name }}, err error)
 			}	
 		}
 	}
-    {{ else if .Enum }}
+    {{ else if and .Enum (eq .IsRepeated false) }}
 	{{ if .Options.EnumAsString }}
 	theModel.{{ .GoName }} = p.{{ .GoName }}.String()
 	{{ else }}
 	theModel.{{ .GoName }} = int(p.{{ .GoName }})
+	{{ end }}
+	{{ else if and .Enum .IsRepeated }}
+	{{ if .Options.EnumAsString }}
+	if len(p.{{ .GoName }}) > 0 {
+		theModel.{{ .GoName }} = pq.StringArray{}
+		for _, val := range p.{{ .GoName }} {
+			theModel.{{ .GoName }} = append(theModel.{{ .GoName }}, val.String())
+		}
+	}
+    {{ else }}
+	if len(p.{{ .GoName }}) > 0 {
+		theModel.{{ .GoName }} = pq.Int32Array{}
+		for _, val := range p.{{ .GoName }} {
+			theModel.{{ .GoName }} = append(theModel.{{ .GoName }}, int32(val))
+		}
+	}
 	{{ end }}
     {{ else }}
     theModel.{{ .GoName }} = p.{{ .GoName }}

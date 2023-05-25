@@ -64,15 +64,27 @@ message Thing {
   // @gotags: fake:"skip"
   BelongsToThing belongs_to = 36 [(gorm.field).belongs_to = {}];
   // @gotags: fake:"skip"
-  HasOneThing has_one = 37 [(gorm.field).has_one = {}];
+  string belongs_to_two_id = 37;
   // @gotags: fake:"skip"
-  repeated HasManyThing has_many = 38 [(gorm.field).has_many = {}];
+  BelongsToThing belongs_to_two = 38 [(gorm.field).belongs_to = {}];
   // @gotags: fake:"skip"
-  repeated ManyToManyThing many_to_many = 39 [(gorm.field).many_to_many = {}];
+  string an_unexpected_id = 39;
+  // @gotags: fake:"skip"
+  BelongsToThing belongs_to_three = 40 [(gorm.field).belongs_to = {foreignkey: "AnUnexpectedId"}];
+  // @gotags: fake:"skip"
+  HasOneThing has_one = 41 [(gorm.field).has_one = {}];
+  // @gotags: fake:"skip"
+  repeated HasManyThing has_many = 42 [(gorm.field).has_many = {}];
+  // @gotags: fake:"skip"
+  repeated ManyToManyThing many_to_many = 43 [(gorm.field).many_to_many = {}];
   // @gotags: fake:"{number:1,9}"
-  EnumOne int_enum = 40;
+  EnumOne int_enum = 44;
   // @gotags: fake:"{number:1,9}"
-  EnumOne string_enum = 41 [(gorm.field).enum_as_string = true];
+  EnumOne string_enum = 45 [(gorm.field).enum_as_string = true];
+  // @gotags: fake:"{number:1,9}"
+  repeated EnumOne int_enum_list = 46;
+  // @gotags: fake:"{number:1,9}"
+  repeated EnumOne string_enum_list = 47 [(gorm.field).enum_as_string = true];
 }
 
 message BelongsToThing {

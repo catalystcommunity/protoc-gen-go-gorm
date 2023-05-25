@@ -69,7 +69,7 @@ func assertProtosEquality(t *testing.T, expected, actual interface{}, ignoreFiel
 			expected,
 			actual,
 			protocmp.Transform(),
-			protocmp.IgnoreFields(&Thing{}, "created_at", "id", "updated_at"),
+			protocmp.IgnoreFields(&Thing{}, "created_at", "id", "updated_at", "belongs_to_two_id", "an_unexpected_id"),
 			protocmp.IgnoreFields(&BelongsToThing{}, "created_at", "id", "updated_at"),
 			protocmp.IgnoreFields(&HasOneThing{}, "created_at", "id", "updated_at", "thing_id"),
 			protocmp.IgnoreFields(&HasManyThing{}, "created_at", "id", "updated_at", "thing_id"),
@@ -86,13 +86,17 @@ func assertProtosEquality(t *testing.T, expected, actual interface{}, ignoreFiel
 
 func (s *PluginSuite) getPopulatedThing() (thing *Thing, err error) {
 	thing = &Thing{}
-	belongsToThing := &BelongsToThing{}
+	belongsToThing, belongsToThingTwo, belongsToThingThree := &BelongsToThing{}, &BelongsToThing{}, &BelongsToThing{}
 	hasOneThing := &HasOneThing{}
 	hasManyThing1, HasManyThing2, hasManyThing3 := &HasManyThing{}, &HasManyThing{}, &HasManyThing{}
 	manyToManyThing1, ManyToManyThing2, manyToManyThing3 := &ManyToManyThing{}, &ManyToManyThing{}, &ManyToManyThing{}
 	err = gofakeit.Struct(&thing)
 	require.NoError(s.T(), err)
 	err = gofakeit.Struct(&belongsToThing)
+	require.NoError(s.T(), err)
+	err = gofakeit.Struct(&belongsToThingTwo)
+	require.NoError(s.T(), err)
+	err = gofakeit.Struct(&belongsToThingThree)
 	require.NoError(s.T(), err)
 	err = gofakeit.Struct(&hasOneThing)
 	require.NoError(s.T(), err)
@@ -109,6 +113,8 @@ func (s *PluginSuite) getPopulatedThing() (thing *Thing, err error) {
 	err = gofakeit.Struct(&manyToManyThing3)
 	require.NoError(s.T(), err)
 	thing.BelongsTo = belongsToThing
+	thing.BelongsToTwo = belongsToThingTwo
+	thing.BelongsToThree = belongsToThingThree
 	thing.HasOne = hasOneThing
 	thing.HasMany = []*HasManyThing{hasManyThing1, HasManyThing2, hasManyThing3}
 	thing.ManyToMany = []*ManyToManyThing{manyToManyThing1, ManyToManyThing2, manyToManyThing3}
