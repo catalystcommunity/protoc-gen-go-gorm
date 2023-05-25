@@ -1,7 +1,6 @@
 package plugin
 
 import (
-	"fmt"
 	gorm "github.com/catalystsquad/protoc-gen-go-gorm/options"
 	"google.golang.org/protobuf/compiler/protogen"
 	"strings"
@@ -53,9 +52,7 @@ func shouldGenerateBelongsToIdField(f *ModelField) bool {
 	}
 	// there are belongs to options, loop through the fields and make sure there isn't one already
 	fieldName := options.GetBelongsTo().Foreignkey
-	g.P(fmt.Sprintf("// fieldName: %s", fieldName))
 	for _, field := range f.Parent.Fields {
-		g.P(fmt.Sprintf("// field.GoName: %s fieldName: %s", field.GoName, fieldName))
 		if field.GoName == fieldName {
 			// field is already on the message, don't generate a duplicate
 			return false
@@ -81,8 +78,10 @@ func isStructPb(field *protogen.Field) bool {
 func getModelFieldType(field *ModelField) string {
 	if field.IsTimestamp {
 		g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "time"})
-		g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "github.com/samber/lo"})
-		g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "google.golang.org/protobuf/types/known/timestamppb"})
+		if field.IsMessage {
+			g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "github.com/samber/lo"})
+			g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "google.golang.org/protobuf/types/known/timestamppb"})
+		}
 		return "*time.Time"
 	} else if field.IsStructPb {
 		g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "github.com/jackc/pgtype"})
