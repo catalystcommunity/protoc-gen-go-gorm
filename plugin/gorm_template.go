@@ -53,6 +53,12 @@ func (m *{{ .Model.Name }}) ToProto() (theProto *{{.GoIdent.GoName}}, err error)
 			}	
 		}
 	}
+    {{ else if .Enum }}
+	{{ if .Options.EnumAsString }}
+	theProto.{{ .GoName }} = {{ .Enum.GoIdent.GoName }}({{ .Enum.GoIdent.GoName }}_value[m.{{ .GoName }}])
+    {{ else }}
+	theProto.{{ .GoName }} = {{ .Enum.GoIdent.GoName }}(m.{{ .GoName }})
+    {{ end }}
     {{ else }}
     theProto.{{ .GoName }} = m.{{ .GoName }}
     {{ end }}
@@ -96,6 +102,12 @@ func (p *{{.GoIdent.GoName}}) ToModel() (theModel *{{ .Model.Name }}, err error)
 			}	
 		}
 	}
+    {{ else if .Enum }}
+	{{ if .Options.EnumAsString }}
+	theModel.{{ .GoName }} = p.{{ .GoName }}.String()
+	{{ else }}
+	theModel.{{ .GoName }} = int(p.{{ .GoName }})
+	{{ end }}
     {{ else }}
     theModel.{{ .GoName }} = p.{{ .GoName }}
     {{ end }}

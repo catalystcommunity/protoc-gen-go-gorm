@@ -8,6 +8,19 @@ import "google/protobuf/timestamp.proto";
 import "options/gorm.proto";
 import "google/protobuf/struct.proto";
 
+enum EnumOne {
+  Default = 0;
+  One = 1;
+  Two = 2;
+  Three = 3;
+  Four = 4;
+  Five = 5;
+  Six = 6;
+  Seven = 7;
+  Eight = 8;
+  Nine = 9;
+}
+
 message Thing {
   option (gorm.opts) = {ormable: true,};
   // @gotags: fake:"skip"
@@ -56,6 +69,10 @@ message Thing {
   repeated HasManyThing has_many = 38 [(gorm.field).has_many = {}];
   // @gotags: fake:"skip"
   repeated ManyToManyThing many_to_many = 39 [(gorm.field).many_to_many = {}];
+  // @gotags: fake:"{number:1,9}"
+  EnumOne int_enum = 40;
+  // @gotags: fake:"{number:1,9}"
+  EnumOne string_enum = 41 [(gorm.field).enum_as_string = true];
 }
 
 message BelongsToThing {
