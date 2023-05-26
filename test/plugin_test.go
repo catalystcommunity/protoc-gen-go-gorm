@@ -30,20 +30,20 @@ func TestPluginSuite(t *testing.T) {
 }
 
 func (s *PluginSuite) TestPlugin() {
-	thing, err := s.getPopulatedThing()
+	user, err := s.getPopulatedUser()
 	require.NoError(s.T(), err)
-	thingModel, err := thing.ToModel()
+	userModel, err := user.ToModel()
 	require.NoError(s.T(), err)
-	err = db.Create(&thingModel).Error
+	err = db.Create(&userModel).Error
 	require.NoError(s.T(), err)
-	var firstThingModel *ThingGormModel
-	var firstThingProto *Thing
-	err = db.Joins("BelongsTo").Joins("HasOne").Preload(clause.Associations).First(&firstThingModel).Error
+	var firstUserModel *UserGormModel
+	var firstUser *User
+	err = db.Joins("Company").Joins("Address").Preload(clause.Associations).First(&firstUserModel).Error
 	require.NoError(s.T(), err)
-	assertModelsEquality(s.T(), thingModel, firstThingModel)
-	firstThingProto, err = firstThingModel.ToProto()
+	assertModelsEquality(s.T(), userModel, firstUserModel)
+	firstUser, err = firstUserModel.ToProto()
 	require.NoError(s.T(), err)
-	assertProtosEquality(s.T(), thing, firstThingProto)
+	assertProtosEquality(s.T(), user, firstUser)
 }
 
 func assertModelsEquality(t *testing.T, expected, actual interface{}) {
@@ -51,73 +51,73 @@ func assertModelsEquality(t *testing.T, expected, actual interface{}) {
 	require.Empty(t, cmp.Diff(
 		expected,
 		actual,
-		cmpopts.SortSlices(func(x, y *HasManyThingGormModel) bool {
+		cmpopts.SortSlices(func(x, y *CommentGormModel) bool {
 			return x.Name < y.Name
 		}),
-		cmpopts.SortSlices(func(x, y *ManyToManyThingGormModel) bool {
+		cmpopts.SortSlices(func(x, y *ProfileGormModel) bool {
 			return x.Name < y.Name
 		}),
-		cmpopts.IgnoreFields(ThingGormModel{}, "AStructpb"),
+		cmpopts.IgnoreFields(UserGormModel{}, "AStructpb"),
 	))
 }
 
 func assertProtosEquality(t *testing.T, expected, actual interface{}, ignoreFields ...string) {
-	// ignoring id, created_at, updated_at, thing_id because the original proto doesn't have those, but the
+	// ignoring id, created_at, updated_at, user_id because the original proto doesn't have those, but the
 	// one converted from the created model does
 	require.Empty(t,
 		cmp.Diff(
 			expected,
 			actual,
 			protocmp.Transform(),
-			protocmp.IgnoreFields(&Thing{}, "created_at", "id", "updated_at", "belongs_to_two_id", "an_unexpected_id"),
-			protocmp.IgnoreFields(&BelongsToThing{}, "created_at", "id", "updated_at"),
-			protocmp.IgnoreFields(&HasOneThing{}, "created_at", "id", "updated_at", "thing_id"),
-			protocmp.IgnoreFields(&HasManyThing{}, "created_at", "id", "updated_at", "thing_id"),
-			protocmp.IgnoreFields(&ManyToManyThing{}, "created_at", "id", "updated_at"),
-			protocmp.SortRepeated(func(x, y *HasManyThing) bool {
+			protocmp.IgnoreFields(&User{}, "created_at", "id", "updated_at", "company_two_id", "an_unexpected_id"),
+			protocmp.IgnoreFields(&Company{}, "created_at", "id", "updated_at"),
+			protocmp.IgnoreFields(&Address{}, "created_at", "id", "updated_at", "user_id"),
+			protocmp.IgnoreFields(&Comment{}, "created_at", "id", "updated_at", "user_id"),
+			protocmp.IgnoreFields(&Profile{}, "created_at", "id", "updated_at"),
+			protocmp.SortRepeated(func(x, y *Comment) bool {
 				return x.Name < y.Name
 			}),
-			protocmp.SortRepeated(func(x, y *ManyToManyThing) bool {
+			protocmp.SortRepeated(func(x, y *Profile) bool {
 				return x.Name < y.Name
 			}),
 		),
 	)
 }
 
-func (s *PluginSuite) getPopulatedThing() (thing *Thing, err error) {
-	thing = &Thing{}
-	belongsToThing, belongsToThingTwo, belongsToThingThree := &BelongsToThing{}, &BelongsToThing{}, &BelongsToThing{}
-	hasOneThing := &HasOneThing{}
-	hasManyThing1, HasManyThing2, hasManyThing3 := &HasManyThing{}, &HasManyThing{}, &HasManyThing{}
-	manyToManyThing1, ManyToManyThing2, manyToManyThing3 := &ManyToManyThing{}, &ManyToManyThing{}, &ManyToManyThing{}
+func (s *PluginSuite) getPopulatedUser() (thing *User, err error) {
+	thing = &User{}
+	company, company2, company3 := &Company{}, &Company{}, &Company{}
+	address := &Address{}
+	comment1, comment2, comment3 := &Comment{}, &Comment{}, &Comment{}
+	profile1, profile2, profile3 := &Profile{}, &Profile{}, &Profile{}
 	err = gofakeit.Struct(&thing)
 	require.NoError(s.T(), err)
-	err = gofakeit.Struct(&belongsToThing)
+	err = gofakeit.Struct(&company)
 	require.NoError(s.T(), err)
-	err = gofakeit.Struct(&belongsToThingTwo)
+	err = gofakeit.Struct(&company2)
 	require.NoError(s.T(), err)
-	err = gofakeit.Struct(&belongsToThingThree)
+	err = gofakeit.Struct(&company3)
 	require.NoError(s.T(), err)
-	err = gofakeit.Struct(&hasOneThing)
+	err = gofakeit.Struct(&address)
 	require.NoError(s.T(), err)
-	err = gofakeit.Struct(&hasManyThing1)
+	err = gofakeit.Struct(&comment1)
 	require.NoError(s.T(), err)
-	err = gofakeit.Struct(&HasManyThing2)
+	err = gofakeit.Struct(&comment2)
 	require.NoError(s.T(), err)
-	err = gofakeit.Struct(&hasManyThing3)
+	err = gofakeit.Struct(&comment3)
 	require.NoError(s.T(), err)
-	err = gofakeit.Struct(&manyToManyThing1)
+	err = gofakeit.Struct(&profile1)
 	require.NoError(s.T(), err)
-	err = gofakeit.Struct(&ManyToManyThing2)
+	err = gofakeit.Struct(&profile2)
 	require.NoError(s.T(), err)
-	err = gofakeit.Struct(&manyToManyThing3)
+	err = gofakeit.Struct(&profile3)
 	require.NoError(s.T(), err)
-	thing.BelongsTo = belongsToThing
-	thing.BelongsToTwo = belongsToThingTwo
-	thing.BelongsToThree = belongsToThingThree
-	thing.HasOne = hasOneThing
-	thing.HasMany = []*HasManyThing{hasManyThing1, HasManyThing2, hasManyThing3}
-	thing.ManyToMany = []*ManyToManyThing{manyToManyThing1, ManyToManyThing2, manyToManyThing3}
+	thing.Company = company
+	thing.CompanyTwo = company2
+	thing.CompanyThree = company3
+	thing.Address = address
+	thing.Comments = []*Comment{comment1, comment2, comment3}
+	thing.Profiles = []*Profile{profile1, profile2, profile3}
 	theMap := gofakeit.Map()
 	bytes, err := json.Marshal(theMap)
 	err = json.Unmarshal(bytes, &thing.AStructpb)
@@ -138,7 +138,7 @@ func (s *PluginSuite) SetupSuite() {
 	dsn := fmt.Sprintf("host=%s port=%d user=root dbname=%s sslmode=disable", container.Host, container.DefaultPort(), "postgres")
 	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	require.NoError(s.T(), err)
-	err = db.AutoMigrate(&ThingGormModel{}, &HasOneThingGormModel{}, &HasManyThingGormModel{})
+	err = db.AutoMigrate(&UserGormModel{}, &AddressGormModel{}, &CommentGormModel{})
 	require.NoError(s.T(), err)
 }
 

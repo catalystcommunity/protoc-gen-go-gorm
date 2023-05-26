@@ -234,9 +234,8 @@ func getGormFieldTag(field *ModelField) string {
 		if options.GetHasOne() != nil || options.GetHasMany() != nil {
 			tag += fmt.Sprintf("foreignKey:%sId;", protoMessageName(field.Parent))
 		} else if options.GetManyToMany() != nil {
-			tableOne := getTableNameFromMessage(field.Parent)
-			tableTwo := getTableNameFromMessage(field.Message)
-			tag += fmt.Sprintf("many2many:%s_%s;", tableOne, tableTwo)
+			m2mTableName := fmt.Sprintf("%s_%s", getTableNameFromMessage(field.Parent), getTableNameFromMessage(field.Message))
+			tag += fmt.Sprintf("many2many:%s;foreignKey:Id;references:Id;joinForeignKey:%sId;joinReferences:%sId", m2mTableName, field.Parent.GoIdent.GoName, field.Message.GoIdent.GoName)
 		} else if options.GetBelongsTo() != nil {
 			if options.GetBelongsTo().Foreignkey != "" {
 				tag = fmt.Sprintf("%sforeignKey:%s;", tag, options.GetBelongsTo().Foreignkey)

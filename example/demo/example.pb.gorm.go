@@ -12,7 +12,7 @@ import (
 	time "time"
 )
 
-type ThingGormModel struct {
+type UserGormModel struct {
 
 	// @gotags: fake:"skip"
 	Id *string `gorm:"type:uuid;primaryKey;default:gen_random_uuid();" json:"id" fake:"skip"`
@@ -71,31 +71,31 @@ type ThingGormModel struct {
 	// @gotags: fake:"skip"
 	AStructpb *pgtype.JSONB `gorm:"type:jsonb" json:"aStructpb" fake:"skip"`
 
-	BelongsToId *string ``
+	CompanyId *string ``
 
 	// @gotags: fake:"skip"
-	BelongsTo *BelongsToThingGormModel `gorm:"foreignKey:BelongsToId;" json:"belongsTo" fake:"skip"`
+	Company *CompanyGormModel `gorm:"foreignKey:CompanyId;" json:"company" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	BelongsToTwoId string `json:"belongsToTwoId" fake:"skip"`
+	CompanyTwoId string `json:"companyTwoId" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	BelongsToTwo *BelongsToThingGormModel `gorm:"foreignKey:BelongsToTwoId;" json:"belongsToTwo" fake:"skip"`
+	CompanyTwo *CompanyGormModel `gorm:"foreignKey:CompanyTwoId;" json:"companyTwo" fake:"skip"`
 
 	// @gotags: fake:"skip"
 	AnUnexpectedId string `json:"anUnexpectedId" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	BelongsToThree *BelongsToThingGormModel `gorm:"foreignKey:AnUnexpectedId;" json:"belongsToThree" fake:"skip"`
+	CompanyThree *CompanyGormModel `gorm:"foreignKey:AnUnexpectedId;" json:"companyThree" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	HasOne *HasOneThingGormModel `gorm:"foreignKey:ThingId;" json:"hasOne" fake:"skip"`
+	Address *AddressGormModel `gorm:"foreignKey:UserId;" json:"address" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	HasMany []*HasManyThingGormModel `gorm:"foreignKey:ThingId;" json:"hasMany" fake:"skip"`
+	Comments []*CommentGormModel `gorm:"foreignKey:UserId;" json:"comments" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	ManyToMany []*ManyToManyThingGormModel `gorm:"many2many:things_many_to_many_things;" json:"manyToMany" fake:"skip"`
+	Profiles []*ProfileGormModel `gorm:"many2many:users_profiles;foreignKey:Id;references:Id;joinForeignKey:UserId;joinReferences:ProfileId" json:"profiles" fake:"skip"`
 
 	// @gotags: fake:"{number:1,9}"
 	IntEnum int `json:"intEnum" fake:"{number:1,9}"`
@@ -110,15 +110,15 @@ type ThingGormModel struct {
 	StringEnumList pq.StringArray `gorm:"type:string[]" json:"stringEnumList" fake:"{number:1,9}"`
 }
 
-func (m *ThingGormModel) TableName() string {
-	return "things"
+func (m *UserGormModel) TableName() string {
+	return "users"
 }
 
-func (m *ThingGormModel) ToProto() (theProto *Thing, err error) {
+func (m *UserGormModel) ToProto() (theProto *User, err error) {
 	if m == nil {
 		return
 	}
-	theProto = &Thing{}
+	theProto = &User{}
 
 	theProto.Id = m.Id
 
@@ -170,46 +170,46 @@ func (m *ThingGormModel) ToProto() (theProto *Thing, err error) {
 		}
 	}
 
-	if theProto.BelongsTo, err = m.BelongsTo.ToProto(); err != nil {
+	if theProto.Company, err = m.Company.ToProto(); err != nil {
 		return
 	}
 
-	theProto.BelongsToTwoId = m.BelongsToTwoId
+	theProto.CompanyTwoId = m.CompanyTwoId
 
-	if theProto.BelongsToTwo, err = m.BelongsToTwo.ToProto(); err != nil {
+	if theProto.CompanyTwo, err = m.CompanyTwo.ToProto(); err != nil {
 		return
 	}
 
 	theProto.AnUnexpectedId = m.AnUnexpectedId
 
-	if theProto.BelongsToThree, err = m.BelongsToThree.ToProto(); err != nil {
+	if theProto.CompanyThree, err = m.CompanyThree.ToProto(); err != nil {
 		return
 	}
 
-	if theProto.HasOne, err = m.HasOne.ToProto(); err != nil {
+	if theProto.Address, err = m.Address.ToProto(); err != nil {
 		return
 	}
 
-	if len(m.HasMany) > 0 {
-		theProto.HasMany = []*HasManyThing{}
-		for _, item := range m.HasMany {
-			var HasManyProto *HasManyThing
-			if HasManyProto, err = item.ToProto(); err != nil {
+	if len(m.Comments) > 0 {
+		theProto.Comments = []*Comment{}
+		for _, item := range m.Comments {
+			var CommentsProto *Comment
+			if CommentsProto, err = item.ToProto(); err != nil {
 				return
 			} else {
-				theProto.HasMany = append(theProto.HasMany, HasManyProto)
+				theProto.Comments = append(theProto.Comments, CommentsProto)
 			}
 		}
 	}
 
-	if len(m.ManyToMany) > 0 {
-		theProto.ManyToMany = []*ManyToManyThing{}
-		for _, item := range m.ManyToMany {
-			var ManyToManyProto *ManyToManyThing
-			if ManyToManyProto, err = item.ToProto(); err != nil {
+	if len(m.Profiles) > 0 {
+		theProto.Profiles = []*Profile{}
+		for _, item := range m.Profiles {
+			var ProfilesProto *Profile
+			if ProfilesProto, err = item.ToProto(); err != nil {
 				return
 			} else {
-				theProto.ManyToMany = append(theProto.ManyToMany, ManyToManyProto)
+				theProto.Profiles = append(theProto.Profiles, ProfilesProto)
 			}
 		}
 	}
@@ -235,11 +235,11 @@ func (m *ThingGormModel) ToProto() (theProto *Thing, err error) {
 	return
 }
 
-func (p *Thing) ToModel() (theModel *ThingGormModel, err error) {
+func (p *User) ToModel() (theModel *UserGormModel, err error) {
 	if p == nil {
 		return
 	}
-	theModel = &ThingGormModel{}
+	theModel = &UserGormModel{}
 
 	theModel.Id = p.Id
 
@@ -295,46 +295,46 @@ func (p *Thing) ToModel() (theModel *ThingGormModel, err error) {
 		}
 	}
 
-	if theModel.BelongsTo, err = p.BelongsTo.ToModel(); err != nil {
+	if theModel.Company, err = p.Company.ToModel(); err != nil {
 		return
 	}
 
-	theModel.BelongsToTwoId = p.BelongsToTwoId
+	theModel.CompanyTwoId = p.CompanyTwoId
 
-	if theModel.BelongsToTwo, err = p.BelongsToTwo.ToModel(); err != nil {
+	if theModel.CompanyTwo, err = p.CompanyTwo.ToModel(); err != nil {
 		return
 	}
 
 	theModel.AnUnexpectedId = p.AnUnexpectedId
 
-	if theModel.BelongsToThree, err = p.BelongsToThree.ToModel(); err != nil {
+	if theModel.CompanyThree, err = p.CompanyThree.ToModel(); err != nil {
 		return
 	}
 
-	if theModel.HasOne, err = p.HasOne.ToModel(); err != nil {
+	if theModel.Address, err = p.Address.ToModel(); err != nil {
 		return
 	}
 
-	if len(p.HasMany) > 0 {
-		theModel.HasMany = []*HasManyThingGormModel{}
-		for _, item := range p.HasMany {
-			var HasManyModel *HasManyThingGormModel
-			if HasManyModel, err = item.ToModel(); err != nil {
+	if len(p.Comments) > 0 {
+		theModel.Comments = []*CommentGormModel{}
+		for _, item := range p.Comments {
+			var CommentsModel *CommentGormModel
+			if CommentsModel, err = item.ToModel(); err != nil {
 				return
 			} else {
-				theModel.HasMany = append(theModel.HasMany, HasManyModel)
+				theModel.Comments = append(theModel.Comments, CommentsModel)
 			}
 		}
 	}
 
-	if len(p.ManyToMany) > 0 {
-		theModel.ManyToMany = []*ManyToManyThingGormModel{}
-		for _, item := range p.ManyToMany {
-			var ManyToManyModel *ManyToManyThingGormModel
-			if ManyToManyModel, err = item.ToModel(); err != nil {
+	if len(p.Profiles) > 0 {
+		theModel.Profiles = []*ProfileGormModel{}
+		for _, item := range p.Profiles {
+			var ProfilesModel *ProfileGormModel
+			if ProfilesModel, err = item.ToModel(); err != nil {
 				return
 			} else {
-				theModel.ManyToMany = append(theModel.ManyToMany, ManyToManyModel)
+				theModel.Profiles = append(theModel.Profiles, ProfilesModel)
 			}
 		}
 	}
@@ -360,7 +360,7 @@ func (p *Thing) ToModel() (theModel *ThingGormModel, err error) {
 	return
 }
 
-type BelongsToThingGormModel struct {
+type CompanyGormModel struct {
 
 	// @gotags: fake:"skip"
 	Id *string `gorm:"type:uuid;primaryKey;default:gen_random_uuid();" json:"id" fake:"skip"`
@@ -375,15 +375,15 @@ type BelongsToThingGormModel struct {
 	Name string `json:"name" fake:"{name}"`
 }
 
-func (m *BelongsToThingGormModel) TableName() string {
-	return "belongs_to_things"
+func (m *CompanyGormModel) TableName() string {
+	return "companies"
 }
 
-func (m *BelongsToThingGormModel) ToProto() (theProto *BelongsToThing, err error) {
+func (m *CompanyGormModel) ToProto() (theProto *Company, err error) {
 	if m == nil {
 		return
 	}
-	theProto = &BelongsToThing{}
+	theProto = &Company{}
 
 	theProto.Id = m.Id
 
@@ -400,11 +400,11 @@ func (m *BelongsToThingGormModel) ToProto() (theProto *BelongsToThing, err error
 	return
 }
 
-func (p *BelongsToThing) ToModel() (theModel *BelongsToThingGormModel, err error) {
+func (p *Company) ToModel() (theModel *CompanyGormModel, err error) {
 	if p == nil {
 		return
 	}
-	theModel = &BelongsToThingGormModel{}
+	theModel = &CompanyGormModel{}
 
 	theModel.Id = p.Id
 
@@ -421,7 +421,7 @@ func (p *BelongsToThing) ToModel() (theModel *BelongsToThingGormModel, err error
 	return
 }
 
-type HasOneThingGormModel struct {
+type AddressGormModel struct {
 
 	// @gotags: fake:"skip"
 	Id *string `gorm:"type:uuid;primaryKey;default:gen_random_uuid();" json:"id" fake:"skip"`
@@ -436,18 +436,18 @@ type HasOneThingGormModel struct {
 	Name string `json:"name" fake:"{name}"`
 
 	// @gotags: fake:"skip"
-	ThingId *string `json:"thingId" fake:"skip"`
+	UserId *string `json:"userId" fake:"skip"`
 }
 
-func (m *HasOneThingGormModel) TableName() string {
-	return "has_one_things"
+func (m *AddressGormModel) TableName() string {
+	return "addresses"
 }
 
-func (m *HasOneThingGormModel) ToProto() (theProto *HasOneThing, err error) {
+func (m *AddressGormModel) ToProto() (theProto *Address, err error) {
 	if m == nil {
 		return
 	}
-	theProto = &HasOneThing{}
+	theProto = &Address{}
 
 	theProto.Id = m.Id
 
@@ -461,16 +461,16 @@ func (m *HasOneThingGormModel) ToProto() (theProto *HasOneThing, err error) {
 
 	theProto.Name = m.Name
 
-	theProto.ThingId = m.ThingId
+	theProto.UserId = m.UserId
 
 	return
 }
 
-func (p *HasOneThing) ToModel() (theModel *HasOneThingGormModel, err error) {
+func (p *Address) ToModel() (theModel *AddressGormModel, err error) {
 	if p == nil {
 		return
 	}
-	theModel = &HasOneThingGormModel{}
+	theModel = &AddressGormModel{}
 
 	theModel.Id = p.Id
 
@@ -484,12 +484,12 @@ func (p *HasOneThing) ToModel() (theModel *HasOneThingGormModel, err error) {
 
 	theModel.Name = p.Name
 
-	theModel.ThingId = p.ThingId
+	theModel.UserId = p.UserId
 
 	return
 }
 
-type HasManyThingGormModel struct {
+type CommentGormModel struct {
 
 	// @gotags: fake:"skip"
 	Id *string `gorm:"type:uuid;primaryKey;default:gen_random_uuid();" json:"id" fake:"skip"`
@@ -504,18 +504,18 @@ type HasManyThingGormModel struct {
 	Name string `json:"name" fake:"{name}"`
 
 	// @gotags: fake:"skip"
-	ThingId *string `json:"thingId" fake:"skip"`
+	UserId *string `json:"userId" fake:"skip"`
 }
 
-func (m *HasManyThingGormModel) TableName() string {
-	return "has_many_things"
+func (m *CommentGormModel) TableName() string {
+	return "comments"
 }
 
-func (m *HasManyThingGormModel) ToProto() (theProto *HasManyThing, err error) {
+func (m *CommentGormModel) ToProto() (theProto *Comment, err error) {
 	if m == nil {
 		return
 	}
-	theProto = &HasManyThing{}
+	theProto = &Comment{}
 
 	theProto.Id = m.Id
 
@@ -529,16 +529,16 @@ func (m *HasManyThingGormModel) ToProto() (theProto *HasManyThing, err error) {
 
 	theProto.Name = m.Name
 
-	theProto.ThingId = m.ThingId
+	theProto.UserId = m.UserId
 
 	return
 }
 
-func (p *HasManyThing) ToModel() (theModel *HasManyThingGormModel, err error) {
+func (p *Comment) ToModel() (theModel *CommentGormModel, err error) {
 	if p == nil {
 		return
 	}
-	theModel = &HasManyThingGormModel{}
+	theModel = &CommentGormModel{}
 
 	theModel.Id = p.Id
 
@@ -552,12 +552,12 @@ func (p *HasManyThing) ToModel() (theModel *HasManyThingGormModel, err error) {
 
 	theModel.Name = p.Name
 
-	theModel.ThingId = p.ThingId
+	theModel.UserId = p.UserId
 
 	return
 }
 
-type ManyToManyThingGormModel struct {
+type ProfileGormModel struct {
 
 	// @gotags: fake:"skip"
 	Id *string `gorm:"type:uuid;primaryKey;default:gen_random_uuid();" json:"id" fake:"skip"`
@@ -572,15 +572,15 @@ type ManyToManyThingGormModel struct {
 	Name string `json:"name" fake:"{name}"`
 }
 
-func (m *ManyToManyThingGormModel) TableName() string {
-	return "many_to_many_things"
+func (m *ProfileGormModel) TableName() string {
+	return "profiles"
 }
 
-func (m *ManyToManyThingGormModel) ToProto() (theProto *ManyToManyThing, err error) {
+func (m *ProfileGormModel) ToProto() (theProto *Profile, err error) {
 	if m == nil {
 		return
 	}
-	theProto = &ManyToManyThing{}
+	theProto = &Profile{}
 
 	theProto.Id = m.Id
 
@@ -597,11 +597,11 @@ func (m *ManyToManyThingGormModel) ToProto() (theProto *ManyToManyThing, err err
 	return
 }
 
-func (p *ManyToManyThing) ToModel() (theModel *ManyToManyThingGormModel, err error) {
+func (p *Profile) ToModel() (theModel *ProfileGormModel, err error) {
 	if p == nil {
 		return
 	}
-	theModel = &ManyToManyThingGormModel{}
+	theModel = &ProfileGormModel{}
 
 	theModel.Id = p.Id
 
