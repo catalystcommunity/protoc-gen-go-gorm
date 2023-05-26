@@ -42,7 +42,7 @@ func getTableNameFromMessage(message *protogen.Message) string {
 	if options != nil && options.Table != "" {
 		return options.Table
 	}
-	return fmt.Sprintf(`%ss`, strcase.SnakeCase(message.GoIdent.GoName))
+	return pluralizer.Plural(strcase.SnakeCase(message.GoIdent.GoName))
 }
 
 func prepareMessages(messages []*protogen.Message, opts PluginOptions) (preparedMessages []*PreparedMessage, err error) {
