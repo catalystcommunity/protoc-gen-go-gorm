@@ -12,6 +12,33 @@ import (
 	time "time"
 )
 
+type UserGormModels []*UserGormModel
+type UserProtos []*User
+
+func (m UserGormModels) ToProtos() (protos UserProtos, err error) {
+	protos = UserProtos{}
+	for _, model := range m {
+		var proto *User
+		if proto, err = model.ToProto(); err != nil {
+			return
+		}
+		protos = append(protos, proto)
+	}
+	return
+}
+
+func (p UserProtos) ToModels() (models UserGormModels, err error) {
+	models = UserGormModels{}
+	for _, proto := range p {
+		var model *UserGormModel
+		if model, err = proto.ToModel(); err != nil {
+			return
+		}
+		models = append(models, model)
+	}
+	return
+}
+
 type UserGormModel struct {
 
 	// @gotags: fake:"skip"
@@ -360,6 +387,33 @@ func (p *User) ToModel() (theModel *UserGormModel, err error) {
 	return
 }
 
+type CompanyGormModels []*CompanyGormModel
+type CompanyProtos []*Company
+
+func (m CompanyGormModels) ToProtos() (protos CompanyProtos, err error) {
+	protos = CompanyProtos{}
+	for _, model := range m {
+		var proto *Company
+		if proto, err = model.ToProto(); err != nil {
+			return
+		}
+		protos = append(protos, proto)
+	}
+	return
+}
+
+func (p CompanyProtos) ToModels() (models CompanyGormModels, err error) {
+	models = CompanyGormModels{}
+	for _, proto := range p {
+		var model *CompanyGormModel
+		if model, err = proto.ToModel(); err != nil {
+			return
+		}
+		models = append(models, model)
+	}
+	return
+}
+
 type CompanyGormModel struct {
 
 	// @gotags: fake:"skip"
@@ -418,6 +472,33 @@ func (p *Company) ToModel() (theModel *CompanyGormModel, err error) {
 
 	theModel.Name = p.Name
 
+	return
+}
+
+type AddressGormModels []*AddressGormModel
+type AddressProtos []*Address
+
+func (m AddressGormModels) ToProtos() (protos AddressProtos, err error) {
+	protos = AddressProtos{}
+	for _, model := range m {
+		var proto *Address
+		if proto, err = model.ToProto(); err != nil {
+			return
+		}
+		protos = append(protos, proto)
+	}
+	return
+}
+
+func (p AddressProtos) ToModels() (models AddressGormModels, err error) {
+	models = AddressGormModels{}
+	for _, proto := range p {
+		var model *AddressGormModel
+		if model, err = proto.ToModel(); err != nil {
+			return
+		}
+		models = append(models, model)
+	}
 	return
 }
 
@@ -489,6 +570,33 @@ func (p *Address) ToModel() (theModel *AddressGormModel, err error) {
 	return
 }
 
+type CommentGormModels []*CommentGormModel
+type CommentProtos []*Comment
+
+func (m CommentGormModels) ToProtos() (protos CommentProtos, err error) {
+	protos = CommentProtos{}
+	for _, model := range m {
+		var proto *Comment
+		if proto, err = model.ToProto(); err != nil {
+			return
+		}
+		protos = append(protos, proto)
+	}
+	return
+}
+
+func (p CommentProtos) ToModels() (models CommentGormModels, err error) {
+	models = CommentGormModels{}
+	for _, proto := range p {
+		var model *CommentGormModel
+		if model, err = proto.ToModel(); err != nil {
+			return
+		}
+		models = append(models, model)
+	}
+	return
+}
+
 type CommentGormModel struct {
 
 	// @gotags: fake:"skip"
@@ -554,6 +662,33 @@ func (p *Comment) ToModel() (theModel *CommentGormModel, err error) {
 
 	theModel.UserId = p.UserId
 
+	return
+}
+
+type ProfileGormModels []*ProfileGormModel
+type ProfileProtos []*Profile
+
+func (m ProfileGormModels) ToProtos() (protos ProfileProtos, err error) {
+	protos = ProfileProtos{}
+	for _, model := range m {
+		var proto *Profile
+		if proto, err = model.ToProto(); err != nil {
+			return
+		}
+		protos = append(protos, proto)
+	}
+	return
+}
+
+func (p ProfileProtos) ToModels() (models ProfileGormModels, err error) {
+	models = ProfileGormModels{}
+	for _, proto := range p {
+		var model *ProfileGormModel
+		if model, err = proto.ToModel(); err != nil {
+			return
+		}
+		models = append(models, model)
+	}
 	return
 }
 
