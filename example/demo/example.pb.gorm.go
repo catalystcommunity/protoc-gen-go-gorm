@@ -4,51 +4,30 @@
 package example
 
 import (
+	context "context"
 	json "encoding/json"
+	crdbgorm "github.com/cockroachdb/cockroach-go/v2/crdb/crdbgorm"
 	pgtype "github.com/jackc/pgtype"
 	pq "github.com/lib/pq"
 	lo "github.com/samber/lo"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
+	gorm "gorm.io/gorm"
+	clause "gorm.io/gorm/clause"
 	time "time"
 )
 
 type UserGormModels []*UserGormModel
 type UserProtos []*User
-
-func (m UserGormModels) ToProtos() (protos UserProtos, err error) {
-	protos = UserProtos{}
-	for _, model := range m {
-		var proto *User
-		if proto, err = model.ToProto(); err != nil {
-			return
-		}
-		protos = append(protos, proto)
-	}
-	return
-}
-
-func (p UserProtos) ToModels() (models UserGormModels, err error) {
-	models = UserGormModels{}
-	for _, proto := range p {
-		var model *UserGormModel
-		if model, err = proto.ToModel(); err != nil {
-			return
-		}
-		models = append(models, model)
-	}
-	return
-}
-
 type UserGormModel struct {
 
 	// @gotags: fake:"skip"
 	Id *string `gorm:"type:uuid;primaryKey;default:gen_random_uuid();" json:"id" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	CreatedAt *time.Time `gorm:"type:timestamp;default:now();" json:"createdAt" fake:"skip"`
+	CreatedAt *time.Time `gorm:"type:timestamp;" json:"createdAt" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	UpdatedAt *time.Time `gorm:"type:timestamp;default:now();" json:"updatedAt" fake:"skip"`
+	UpdatedAt *time.Time `gorm:"type:timestamp;" json:"updatedAt" fake:"skip"`
 
 	// @gotags: fake:"{price:0.00,1000.00}"
 	ADouble float64 `json:"aDouble" fake:"{price:0.00,1000.00}"`
@@ -137,8 +116,43 @@ type UserGormModel struct {
 	StringEnumList pq.StringArray `gorm:"type:string[]" json:"stringEnumList" fake:"{number:1,9}"`
 }
 
+func (m *UserGormModel) BeforeSave(tx *gorm.DB) (err error) {
+	timestamp := time.Now()
+	if m.CreatedAt == nil {
+		// createdAt not set, set it
+		m.CreatedAt = &timestamp
+	}
+	// always set updatedAt
+	m.UpdatedAt = &timestamp
+	return
+}
+
 func (m *UserGormModel) TableName() string {
 	return "users"
+}
+
+func (m UserGormModels) ToProtos() (protos UserProtos, err error) {
+	protos = UserProtos{}
+	for _, model := range m {
+		var proto *User
+		if proto, err = model.ToProto(); err != nil {
+			return
+		}
+		protos = append(protos, proto)
+	}
+	return
+}
+
+func (p UserProtos) ToModels() (models UserGormModels, err error) {
+	models = UserGormModels{}
+	for _, proto := range p {
+		var model *UserGormModel
+		if model, err = proto.ToModel(); err != nil {
+			return
+		}
+		models = append(models, model)
+	}
+	return
 }
 
 func (m *UserGormModel) ToProto() (theProto *User, err error) {
@@ -150,11 +164,11 @@ func (m *UserGormModel) ToProto() (theProto *User, err error) {
 	theProto.Id = m.Id
 
 	if m.CreatedAt != nil {
-		theProto.CreatedAt = timestamppb.New(*m.CreatedAt)
+		theProto.CreatedAt = m.CreatedAt.Format(time.RFC3339Nano)
 	}
 
 	if m.UpdatedAt != nil {
-		theProto.UpdatedAt = m.UpdatedAt.Format(time.RFC3339Nano)
+		theProto.UpdatedAt = timestamppb.New(*m.UpdatedAt)
 	}
 
 	theProto.ADouble = m.ADouble
@@ -270,16 +284,16 @@ func (p *User) ToModel() (theModel *UserGormModel, err error) {
 
 	theModel.Id = p.Id
 
-	if p.CreatedAt != nil {
-		theModel.CreatedAt = lo.ToPtr(p.CreatedAt.AsTime())
-	}
-
-	if p.UpdatedAt != "" {
+	if p.CreatedAt != "" {
 		var timestamp time.Time
-		if timestamp, err = time.Parse(time.RFC3339Nano, p.UpdatedAt); err != nil {
+		if timestamp, err = time.Parse(time.RFC3339Nano, p.CreatedAt); err != nil {
 			return
 		}
-		theModel.UpdatedAt = &timestamp
+		theModel.CreatedAt = &timestamp
+	}
+
+	if p.UpdatedAt != nil {
+		theModel.UpdatedAt = lo.ToPtr(p.UpdatedAt.AsTime())
 	}
 
 	theModel.ADouble = p.ADouble
@@ -387,8 +401,71 @@ func (p *User) ToModel() (theModel *UserGormModel, err error) {
 	return
 }
 
+func (m UserGormModels) GetByModelIds(ctx context.Context, db *gorm.DB) (err error) {
+	ids := []string{}
+	for _, model := range m {
+		if model.Id != nil {
+			ids = append(ids, *model.Id)
+		}
+	}
+	if len(ids) > 0 {
+		err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
+			return tx.Preload(clause.Associations).Where("id in ?", ids).Find(&m).Error
+		})
+	}
+	return
+}
+
+func (p *UserProtos) Upsert(ctx context.Context, db *gorm.DB) (err error) {
+	if p != nil {
+		var models UserGormModels
+		if models, err = p.ToModels(); err != nil {
+			return
+		}
+		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
+			return tx.Clauses(clause.Returning{}).Save(&models).Error
+		}); err != nil {
+			return
+		}
+		if err = models.GetByModelIds(ctx, db); err != nil {
+			return
+		}
+		*p, err = models.ToProtos()
+	}
+	return
+}
+
 type CompanyGormModels []*CompanyGormModel
 type CompanyProtos []*Company
+type CompanyGormModel struct {
+
+	// @gotags: fake:"skip"
+	Id *string `gorm:"type:uuid;primaryKey;default:gen_random_uuid();" json:"id" fake:"skip"`
+
+	// @gotags: fake:"skip"
+	CreatedAt *time.Time `gorm:"type:timestamp;" json:"createdAt" fake:"skip"`
+
+	// @gotags: fake:"skip"
+	UpdatedAt *time.Time `gorm:"type:timestamp;" json:"updatedAt" fake:"skip"`
+
+	// @gotags: fake:"{name}"
+	Name string `json:"name" fake:"{name}"`
+}
+
+func (m *CompanyGormModel) BeforeSave(tx *gorm.DB) (err error) {
+	timestamp := time.Now()
+	if m.CreatedAt == nil {
+		// createdAt not set, set it
+		m.CreatedAt = &timestamp
+	}
+	// always set updatedAt
+	m.UpdatedAt = &timestamp
+	return
+}
+
+func (m *CompanyGormModel) TableName() string {
+	return "companies"
+}
 
 func (m CompanyGormModels) ToProtos() (protos CompanyProtos, err error) {
 	protos = CompanyProtos{}
@@ -412,25 +489,6 @@ func (p CompanyProtos) ToModels() (models CompanyGormModels, err error) {
 		models = append(models, model)
 	}
 	return
-}
-
-type CompanyGormModel struct {
-
-	// @gotags: fake:"skip"
-	Id *string `gorm:"type:uuid;primaryKey;default:gen_random_uuid();" json:"id" fake:"skip"`
-
-	// @gotags: fake:"skip"
-	CreatedAt *time.Time `gorm:"type:timestamp;default:now();" json:"createdAt" fake:"skip"`
-
-	// @gotags: fake:"skip"
-	UpdatedAt *time.Time `gorm:"type:timestamp;default:now();" json:"updatedAt" fake:"skip"`
-
-	// @gotags: fake:"{name}"
-	Name string `json:"name" fake:"{name}"`
-}
-
-func (m *CompanyGormModel) TableName() string {
-	return "companies"
 }
 
 func (m *CompanyGormModel) ToProto() (theProto *Company, err error) {
@@ -475,8 +533,74 @@ func (p *Company) ToModel() (theModel *CompanyGormModel, err error) {
 	return
 }
 
+func (m CompanyGormModels) GetByModelIds(ctx context.Context, db *gorm.DB) (err error) {
+	ids := []string{}
+	for _, model := range m {
+		if model.Id != nil {
+			ids = append(ids, *model.Id)
+		}
+	}
+	if len(ids) > 0 {
+		err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
+			return tx.Preload(clause.Associations).Where("id in ?", ids).Find(&m).Error
+		})
+	}
+	return
+}
+
+func (p *CompanyProtos) Upsert(ctx context.Context, db *gorm.DB) (err error) {
+	if p != nil {
+		var models CompanyGormModels
+		if models, err = p.ToModels(); err != nil {
+			return
+		}
+		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
+			return tx.Clauses(clause.Returning{}).Save(&models).Error
+		}); err != nil {
+			return
+		}
+		if err = models.GetByModelIds(ctx, db); err != nil {
+			return
+		}
+		*p, err = models.ToProtos()
+	}
+	return
+}
+
 type AddressGormModels []*AddressGormModel
 type AddressProtos []*Address
+type AddressGormModel struct {
+
+	// @gotags: fake:"skip"
+	Id *string `gorm:"type:uuid;primaryKey;default:gen_random_uuid();" json:"id" fake:"skip"`
+
+	// @gotags: fake:"skip"
+	CreatedAt *time.Time `gorm:"type:timestamp;" json:"createdAt" fake:"skip"`
+
+	// @gotags: fake:"skip"
+	UpdatedAt *time.Time `gorm:"type:timestamp;" json:"updatedAt" fake:"skip"`
+
+	// @gotags: fake:"{name}"
+	Name string `json:"name" fake:"{name}"`
+
+	// @gotags: fake:"skip"
+	UserId *string `json:"userId" fake:"skip"`
+}
+
+func (m *AddressGormModel) BeforeSave(tx *gorm.DB) (err error) {
+	timestamp := time.Now()
+	if m.CreatedAt == nil {
+		// createdAt not set, set it
+		m.CreatedAt = &timestamp
+	}
+	// always set updatedAt
+	m.UpdatedAt = &timestamp
+	return
+}
+
+func (m *AddressGormModel) TableName() string {
+	return "addresses"
+}
 
 func (m AddressGormModels) ToProtos() (protos AddressProtos, err error) {
 	protos = AddressProtos{}
@@ -500,28 +624,6 @@ func (p AddressProtos) ToModels() (models AddressGormModels, err error) {
 		models = append(models, model)
 	}
 	return
-}
-
-type AddressGormModel struct {
-
-	// @gotags: fake:"skip"
-	Id *string `gorm:"type:uuid;primaryKey;default:gen_random_uuid();" json:"id" fake:"skip"`
-
-	// @gotags: fake:"skip"
-	CreatedAt *time.Time `gorm:"type:timestamp;default:now();" json:"createdAt" fake:"skip"`
-
-	// @gotags: fake:"skip"
-	UpdatedAt *time.Time `gorm:"type:timestamp;default:now();" json:"updatedAt" fake:"skip"`
-
-	// @gotags: fake:"{name}"
-	Name string `json:"name" fake:"{name}"`
-
-	// @gotags: fake:"skip"
-	UserId *string `json:"userId" fake:"skip"`
-}
-
-func (m *AddressGormModel) TableName() string {
-	return "addresses"
 }
 
 func (m *AddressGormModel) ToProto() (theProto *Address, err error) {
@@ -570,8 +672,74 @@ func (p *Address) ToModel() (theModel *AddressGormModel, err error) {
 	return
 }
 
+func (m AddressGormModels) GetByModelIds(ctx context.Context, db *gorm.DB) (err error) {
+	ids := []string{}
+	for _, model := range m {
+		if model.Id != nil {
+			ids = append(ids, *model.Id)
+		}
+	}
+	if len(ids) > 0 {
+		err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
+			return tx.Preload(clause.Associations).Where("id in ?", ids).Find(&m).Error
+		})
+	}
+	return
+}
+
+func (p *AddressProtos) Upsert(ctx context.Context, db *gorm.DB) (err error) {
+	if p != nil {
+		var models AddressGormModels
+		if models, err = p.ToModels(); err != nil {
+			return
+		}
+		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
+			return tx.Clauses(clause.Returning{}).Save(&models).Error
+		}); err != nil {
+			return
+		}
+		if err = models.GetByModelIds(ctx, db); err != nil {
+			return
+		}
+		*p, err = models.ToProtos()
+	}
+	return
+}
+
 type CommentGormModels []*CommentGormModel
 type CommentProtos []*Comment
+type CommentGormModel struct {
+
+	// @gotags: fake:"skip"
+	Id *string `gorm:"type:uuid;primaryKey;default:gen_random_uuid();" json:"id" fake:"skip"`
+
+	// @gotags: fake:"skip"
+	CreatedAt *time.Time `gorm:"type:timestamp;" json:"createdAt" fake:"skip"`
+
+	// @gotags: fake:"skip"
+	UpdatedAt *time.Time `gorm:"type:timestamp;" json:"updatedAt" fake:"skip"`
+
+	// @gotags: fake:"{name}"
+	Name string `json:"name" fake:"{name}"`
+
+	// @gotags: fake:"skip"
+	UserId *string `json:"userId" fake:"skip"`
+}
+
+func (m *CommentGormModel) BeforeSave(tx *gorm.DB) (err error) {
+	timestamp := time.Now()
+	if m.CreatedAt == nil {
+		// createdAt not set, set it
+		m.CreatedAt = &timestamp
+	}
+	// always set updatedAt
+	m.UpdatedAt = &timestamp
+	return
+}
+
+func (m *CommentGormModel) TableName() string {
+	return "comments"
+}
 
 func (m CommentGormModels) ToProtos() (protos CommentProtos, err error) {
 	protos = CommentProtos{}
@@ -595,28 +763,6 @@ func (p CommentProtos) ToModels() (models CommentGormModels, err error) {
 		models = append(models, model)
 	}
 	return
-}
-
-type CommentGormModel struct {
-
-	// @gotags: fake:"skip"
-	Id *string `gorm:"type:uuid;primaryKey;default:gen_random_uuid();" json:"id" fake:"skip"`
-
-	// @gotags: fake:"skip"
-	CreatedAt *time.Time `gorm:"type:timestamp;default:now();" json:"createdAt" fake:"skip"`
-
-	// @gotags: fake:"skip"
-	UpdatedAt *time.Time `gorm:"type:timestamp;default:now();" json:"updatedAt" fake:"skip"`
-
-	// @gotags: fake:"{name}"
-	Name string `json:"name" fake:"{name}"`
-
-	// @gotags: fake:"skip"
-	UserId *string `json:"userId" fake:"skip"`
-}
-
-func (m *CommentGormModel) TableName() string {
-	return "comments"
 }
 
 func (m *CommentGormModel) ToProto() (theProto *Comment, err error) {
@@ -665,8 +811,71 @@ func (p *Comment) ToModel() (theModel *CommentGormModel, err error) {
 	return
 }
 
+func (m CommentGormModels) GetByModelIds(ctx context.Context, db *gorm.DB) (err error) {
+	ids := []string{}
+	for _, model := range m {
+		if model.Id != nil {
+			ids = append(ids, *model.Id)
+		}
+	}
+	if len(ids) > 0 {
+		err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
+			return tx.Preload(clause.Associations).Where("id in ?", ids).Find(&m).Error
+		})
+	}
+	return
+}
+
+func (p *CommentProtos) Upsert(ctx context.Context, db *gorm.DB) (err error) {
+	if p != nil {
+		var models CommentGormModels
+		if models, err = p.ToModels(); err != nil {
+			return
+		}
+		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
+			return tx.Clauses(clause.Returning{}).Save(&models).Error
+		}); err != nil {
+			return
+		}
+		if err = models.GetByModelIds(ctx, db); err != nil {
+			return
+		}
+		*p, err = models.ToProtos()
+	}
+	return
+}
+
 type ProfileGormModels []*ProfileGormModel
 type ProfileProtos []*Profile
+type ProfileGormModel struct {
+
+	// @gotags: fake:"skip"
+	Id *string `gorm:"type:uuid;primaryKey;default:gen_random_uuid();" json:"id" fake:"skip"`
+
+	// @gotags: fake:"skip"
+	CreatedAt *time.Time `gorm:"type:timestamp;" json:"createdAt" fake:"skip"`
+
+	// @gotags: fake:"skip"
+	UpdatedAt *time.Time `gorm:"type:timestamp;" json:"updatedAt" fake:"skip"`
+
+	// @gotags: fake:"{name}"
+	Name string `json:"name" fake:"{name}"`
+}
+
+func (m *ProfileGormModel) BeforeSave(tx *gorm.DB) (err error) {
+	timestamp := time.Now()
+	if m.CreatedAt == nil {
+		// createdAt not set, set it
+		m.CreatedAt = &timestamp
+	}
+	// always set updatedAt
+	m.UpdatedAt = &timestamp
+	return
+}
+
+func (m *ProfileGormModel) TableName() string {
+	return "profiles"
+}
 
 func (m ProfileGormModels) ToProtos() (protos ProfileProtos, err error) {
 	protos = ProfileProtos{}
@@ -690,25 +899,6 @@ func (p ProfileProtos) ToModels() (models ProfileGormModels, err error) {
 		models = append(models, model)
 	}
 	return
-}
-
-type ProfileGormModel struct {
-
-	// @gotags: fake:"skip"
-	Id *string `gorm:"type:uuid;primaryKey;default:gen_random_uuid();" json:"id" fake:"skip"`
-
-	// @gotags: fake:"skip"
-	CreatedAt *time.Time `gorm:"type:timestamp;default:now();" json:"createdAt" fake:"skip"`
-
-	// @gotags: fake:"skip"
-	UpdatedAt *time.Time `gorm:"type:timestamp;default:now();" json:"updatedAt" fake:"skip"`
-
-	// @gotags: fake:"{name}"
-	Name string `json:"name" fake:"{name}"`
-}
-
-func (m *ProfileGormModel) TableName() string {
-	return "profiles"
 }
 
 func (m *ProfileGormModel) ToProto() (theProto *Profile, err error) {
@@ -750,5 +940,39 @@ func (p *Profile) ToModel() (theModel *ProfileGormModel, err error) {
 
 	theModel.Name = p.Name
 
+	return
+}
+
+func (m ProfileGormModels) GetByModelIds(ctx context.Context, db *gorm.DB) (err error) {
+	ids := []string{}
+	for _, model := range m {
+		if model.Id != nil {
+			ids = append(ids, *model.Id)
+		}
+	}
+	if len(ids) > 0 {
+		err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
+			return tx.Preload(clause.Associations).Where("id in ?", ids).Find(&m).Error
+		})
+	}
+	return
+}
+
+func (p *ProfileProtos) Upsert(ctx context.Context, db *gorm.DB) (err error) {
+	if p != nil {
+		var models ProfileGormModels
+		if models, err = p.ToModels(); err != nil {
+			return
+		}
+		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
+			return tx.Clauses(clause.Returning{}).Save(&models).Error
+		}); err != nil {
+			return
+		}
+		if err = models.GetByModelIds(ctx, db); err != nil {
+			return
+		}
+		*p, err = models.ToProtos()
+	}
 	return
 }
