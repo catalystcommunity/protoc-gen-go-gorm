@@ -435,42 +435,6 @@ func (p *UserProtos) Upsert(ctx context.Context, db *gorm.DB) (err error) {
 	return
 }
 
-func (p *UserProtos) List(ctx context.Context, db *gorm.DB, limit, offset int, order interface{}) (err error) {
-	if p != nil {
-		var models UserGormModels
-		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
-			tx = tx.Preload(clause.Associations).Limit(limit).Offset(offset)
-			if order != nil {
-				tx = tx.Order(order)
-			}
-			return tx.Find(&models).Error
-		}); err != nil {
-			return
-		}
-		*p, err = models.ToProtos()
-	}
-	return
-}
-
-func (p *UserProtos) GetByIds(ctx context.Context, db *gorm.DB, ids []string) (err error) {
-	if p != nil {
-		var models UserGormModels
-		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
-			return tx.Preload(clause.Associations).Where("id in ?", ids).Find(&models).Error
-		}); err != nil {
-			return
-		}
-		*p, err = models.ToProtos()
-	}
-	return
-}
-
-func DeleteUserGormModels(ctx context.Context, db *gorm.DB, ids []string) error {
-	return crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
-		return tx.Where("id in ?", ids).Delete(&UserGormModel{}).Error
-	})
-}
-
 type CompanyGormModels []*CompanyGormModel
 type CompanyProtos []*Company
 type CompanyGormModel struct {
@@ -601,42 +565,6 @@ func (p *CompanyProtos) Upsert(ctx context.Context, db *gorm.DB) (err error) {
 		*p, err = models.ToProtos()
 	}
 	return
-}
-
-func (p *CompanyProtos) List(ctx context.Context, db *gorm.DB, limit, offset int, order interface{}) (err error) {
-	if p != nil {
-		var models CompanyGormModels
-		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
-			tx = tx.Preload(clause.Associations).Limit(limit).Offset(offset)
-			if order != nil {
-				tx = tx.Order(order)
-			}
-			return tx.Find(&models).Error
-		}); err != nil {
-			return
-		}
-		*p, err = models.ToProtos()
-	}
-	return
-}
-
-func (p *CompanyProtos) GetByIds(ctx context.Context, db *gorm.DB, ids []string) (err error) {
-	if p != nil {
-		var models CompanyGormModels
-		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
-			return tx.Preload(clause.Associations).Where("id in ?", ids).Find(&models).Error
-		}); err != nil {
-			return
-		}
-		*p, err = models.ToProtos()
-	}
-	return
-}
-
-func DeleteCompanyGormModels(ctx context.Context, db *gorm.DB, ids []string) error {
-	return crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
-		return tx.Where("id in ?", ids).Delete(&CompanyGormModel{}).Error
-	})
 }
 
 type AddressGormModels []*AddressGormModel
@@ -778,42 +706,6 @@ func (p *AddressProtos) Upsert(ctx context.Context, db *gorm.DB) (err error) {
 	return
 }
 
-func (p *AddressProtos) List(ctx context.Context, db *gorm.DB, limit, offset int, order interface{}) (err error) {
-	if p != nil {
-		var models AddressGormModels
-		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
-			tx = tx.Preload(clause.Associations).Limit(limit).Offset(offset)
-			if order != nil {
-				tx = tx.Order(order)
-			}
-			return tx.Find(&models).Error
-		}); err != nil {
-			return
-		}
-		*p, err = models.ToProtos()
-	}
-	return
-}
-
-func (p *AddressProtos) GetByIds(ctx context.Context, db *gorm.DB, ids []string) (err error) {
-	if p != nil {
-		var models AddressGormModels
-		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
-			return tx.Preload(clause.Associations).Where("id in ?", ids).Find(&models).Error
-		}); err != nil {
-			return
-		}
-		*p, err = models.ToProtos()
-	}
-	return
-}
-
-func DeleteAddressGormModels(ctx context.Context, db *gorm.DB, ids []string) error {
-	return crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
-		return tx.Where("id in ?", ids).Delete(&AddressGormModel{}).Error
-	})
-}
-
 type CommentGormModels []*CommentGormModel
 type CommentProtos []*Comment
 type CommentGormModel struct {
@@ -953,42 +845,6 @@ func (p *CommentProtos) Upsert(ctx context.Context, db *gorm.DB) (err error) {
 	return
 }
 
-func (p *CommentProtos) List(ctx context.Context, db *gorm.DB, limit, offset int, order interface{}) (err error) {
-	if p != nil {
-		var models CommentGormModels
-		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
-			tx = tx.Preload(clause.Associations).Limit(limit).Offset(offset)
-			if order != nil {
-				tx = tx.Order(order)
-			}
-			return tx.Find(&models).Error
-		}); err != nil {
-			return
-		}
-		*p, err = models.ToProtos()
-	}
-	return
-}
-
-func (p *CommentProtos) GetByIds(ctx context.Context, db *gorm.DB, ids []string) (err error) {
-	if p != nil {
-		var models CommentGormModels
-		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
-			return tx.Preload(clause.Associations).Where("id in ?", ids).Find(&models).Error
-		}); err != nil {
-			return
-		}
-		*p, err = models.ToProtos()
-	}
-	return
-}
-
-func DeleteCommentGormModels(ctx context.Context, db *gorm.DB, ids []string) error {
-	return crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
-		return tx.Where("id in ?", ids).Delete(&CommentGormModel{}).Error
-	})
-}
-
 type ProfileGormModels []*ProfileGormModel
 type ProfileProtos []*Profile
 type ProfileGormModel struct {
@@ -1119,40 +975,4 @@ func (p *ProfileProtos) Upsert(ctx context.Context, db *gorm.DB) (err error) {
 		*p, err = models.ToProtos()
 	}
 	return
-}
-
-func (p *ProfileProtos) List(ctx context.Context, db *gorm.DB, limit, offset int, order interface{}) (err error) {
-	if p != nil {
-		var models ProfileGormModels
-		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
-			tx = tx.Preload(clause.Associations).Limit(limit).Offset(offset)
-			if order != nil {
-				tx = tx.Order(order)
-			}
-			return tx.Find(&models).Error
-		}); err != nil {
-			return
-		}
-		*p, err = models.ToProtos()
-	}
-	return
-}
-
-func (p *ProfileProtos) GetByIds(ctx context.Context, db *gorm.DB, ids []string) (err error) {
-	if p != nil {
-		var models ProfileGormModels
-		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
-			return tx.Preload(clause.Associations).Where("id in ?", ids).Find(&models).Error
-		}); err != nil {
-			return
-		}
-		*p, err = models.ToProtos()
-	}
-	return
-}
-
-func DeleteProfileGormModels(ctx context.Context, db *gorm.DB, ids []string) error {
-	return crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
-		return tx.Where("id in ?", ids).Delete(&ProfileGormModel{}).Error
-	})
 }
