@@ -21,7 +21,7 @@ enum EnumOne {
   Nine = 9;
 }
 
-message Thing {
+message User {
   option (gorm.opts) = {ormable: true,};
   // @gotags: fake:"skip"
   optional string id = 1;
@@ -62,21 +62,21 @@ message Thing {
   // @gotags: fake:"skip"
   google.protobuf.Struct a_structpb = 35;
   // @gotags: fake:"skip"
-  BelongsToThing belongs_to = 36 [(gorm.field).belongs_to = {}];
+  Company company = 36 [(gorm.field).belongs_to = {}];
   // @gotags: fake:"skip"
-  string belongs_to_two_id = 37;
+  string company_two_id = 37;
   // @gotags: fake:"skip"
-  BelongsToThing belongs_to_two = 38 [(gorm.field).belongs_to = {}];
+  Company company_two = 38 [(gorm.field).belongs_to = {}];
   // @gotags: fake:"skip"
   string an_unexpected_id = 39;
   // @gotags: fake:"skip"
-  BelongsToThing belongs_to_three = 40 [(gorm.field).belongs_to = {foreignkey: "AnUnexpectedId"}];
+  Company company_three = 40 [(gorm.field).belongs_to = {foreignkey: "AnUnexpectedId"}];
   // @gotags: fake:"skip"
-  HasOneThing has_one = 41 [(gorm.field).has_one = {}];
+  Address address = 41 [(gorm.field).has_one = {}];
   // @gotags: fake:"skip"
-  repeated HasManyThing has_many = 42 [(gorm.field).has_many = {}];
+  repeated Comment comments = 42 [(gorm.field).has_many = {}];
   // @gotags: fake:"skip"
-  repeated ManyToManyThing many_to_many = 43 [(gorm.field).many_to_many = {}];
+  repeated Profile profiles = 43 [(gorm.field).many_to_many = {}];
   // @gotags: fake:"{number:1,9}"
   EnumOne int_enum = 44;
   // @gotags: fake:"{number:1,9}"
@@ -87,7 +87,7 @@ message Thing {
   repeated EnumOne string_enum_list = 47 [(gorm.field).enum_as_string = true];
 }
 
-message BelongsToThing {
+message Company {
   option (gorm.opts) = {ormable: true,};
   // @gotags: fake:"skip"
   optional string id = 1;
@@ -98,7 +98,7 @@ message BelongsToThing {
   // @gotags: fake:"{name}"
   string name = 4;
 }
-message HasOneThing {
+message Address {
   option (gorm.opts) = {ormable: true,};
   // @gotags: fake:"skip"
   optional string id = 1;
@@ -109,24 +109,24 @@ message HasOneThing {
   // @gotags: fake:"{name}"
   string name = 4;
   // @gotags: fake:"skip"
-  optional string thing_id = 5;
-}
-
-message HasManyThing {
-  option (gorm.opts) = {ormable: true,};
-  // @gotags: fake:"skip"
-  optional string id = 1;
-  // @gotags: fake:"skip"
-  google.protobuf.Timestamp created_at = 2;
-  // @gotags: fake:"skip"
-  google.protobuf.Timestamp updated_at = 3;
-  // @gotags: fake:"{name}"
-  string name = 4;
-  // @gotags: fake:"skip"
-  optional string thing_id = 5;
+  optional string user_id = 5;
 }
 
-message ManyToManyThing {
+message Comment {
+  option (gorm.opts) = {ormable: true,};
+  // @gotags: fake:"skip"
+  optional string id = 1;
+  // @gotags: fake:"skip"
+  google.protobuf.Timestamp created_at = 2;
+  // @gotags: fake:"skip"
+  google.protobuf.Timestamp updated_at = 3;
+  // @gotags: fake:"{name}"
+  string name = 4;
+  // @gotags: fake:"skip"
+  optional string user_id = 5;
+}
+
+message Profile {
   option (gorm.opts) = {ormable: true,};
   // @gotags: fake:"skip"
   optional string id = 1;
