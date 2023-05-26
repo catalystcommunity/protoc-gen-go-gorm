@@ -233,4 +233,40 @@ func (p *{{.GoIdent.GoName}}Protos) Upsert(ctx context.Context, db *gorm.DB) (er
 	}
 	return
 }
+
+func (p *{{.GoIdent.GoName}}Protos) List(ctx context.Context, db *gorm.DB, limit, offset int, order interface{}) (err error) {
+	if p != nil {
+		var models {{ .Model.Name }}s
+		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
+			tx = tx.Preload(clause.Associations).Limit(limit).Offset(offset)
+			if order != nil {
+				tx = tx.Order(order)
+			}
+			return tx.Find(&models).Error
+		}); err != nil {
+			return
+		}
+		*p, err = models.ToProtos()
+	}
+	return
+}
+
+func (p *{{.GoIdent.GoName}}Protos) GetByIds(ctx context.Context, db *gorm.DB, ids []string) (err error) {
+	if p != nil {
+		var models {{ .Model.Name }}s
+		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
+			return tx.Preload(clause.Associations).Where("id in ?", ids).Find(&models).Error
+		}); err != nil {
+			return
+		}
+		*p, err = models.ToProtos()
+	}
+	return
+}
+
+func Delete{{ .Model.Name }}s(ctx context.Context, db *gorm.DB, ids []string) error {
+	return crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
+		return tx.Where("id in ?", ids).Delete(&{{ .Model.Name }}{}).Error	
+	})
+}
 `))
