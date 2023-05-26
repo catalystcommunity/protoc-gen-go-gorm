@@ -95,7 +95,7 @@ type ThingGormModel struct {
 	HasMany []*HasManyThingGormModel `gorm:"foreignKey:ThingId;" json:"hasMany" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	ManyToMany []*ManyToManyThingGormModel `gorm:"many2many:things_manytomanys;" json:"manyToMany" fake:"skip"`
+	ManyToMany []*ManyToManyThingGormModel `gorm:"many2many:things_many_to_many_things;" json:"manyToMany" fake:"skip"`
 
 	// @gotags: fake:"{number:1,9}"
 	IntEnum int `json:"intEnum" fake:"{number:1,9}"`

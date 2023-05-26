@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	gorm "github.com/catalystsquad/protoc-gen-go-gorm/options"
+	"github.com/gertd/go-pluralize"
 	"github.com/golang/glog"
 	"github.com/stoewer/go-strcase"
 	"google.golang.org/protobuf/compiler/protogen"
@@ -27,6 +28,7 @@ const gormModelTimestampType = "time.Time"
 // I can't find where the constant is for this in protogen, so I'm putting it here.
 const SUPPORTS_OPTIONAL_FIELDS = 1
 
+var pluralizer = pluralize.NewClient()
 var templateFuncs = map[string]any{
 	"protoMessageName":      protoMessageName,
 	"fieldComments":         fieldComments,
@@ -232,7 +234,9 @@ func getGormFieldTag(field *ModelField) string {
 		if options.GetHasOne() != nil || options.GetHasMany() != nil {
 			tag += fmt.Sprintf("foreignKey:%sId;", protoMessageName(field.Parent))
 		} else if options.GetManyToMany() != nil {
-			tag += fmt.Sprintf("many2many:%ss_%ss;", strings.ToLower(string(protoMessageName(field.Parent))), strings.ToLower(getMessageGormModelFieldName(field.Field)))
+			tableOne := getTableNameFromMessage(field.Parent)
+			tableTwo := getTableNameFromMessage(field.Message)
+			tag += fmt.Sprintf("many2many:%s_%s;", tableOne, tableTwo)
 		} else if options.GetBelongsTo() != nil {
 			if options.GetBelongsTo().Foreignkey != "" {
 				tag = fmt.Sprintf("%sforeignKey:%s;", tag, options.GetBelongsTo().Foreignkey)
