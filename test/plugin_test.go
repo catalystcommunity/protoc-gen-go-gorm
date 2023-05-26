@@ -46,6 +46,17 @@ func (s *PluginSuite) TestPlugin() {
 	assertProtosEquality(s.T(), thing, firstThingProto)
 }
 
+func (s *PluginSuite) TestSliceTransformers() {
+	thing, err := s.getPopulatedThing()
+	require.NoError(s.T(), err)
+	things := ThingProtos{thing}
+	models, err := things.ToModels()
+	require.NoError(s.T(), err)
+	transformedThings, err := models.ToProtos()
+	require.NoError(s.T(), err)
+	assertProtosEquality(s.T(), things, transformedThings)
+}
+
 func assertModelsEquality(t *testing.T, expected, actual interface{}) {
 	// no need to ignore id, created_at, updated_at because gorm populates them on create
 	require.Empty(t, cmp.Diff(
