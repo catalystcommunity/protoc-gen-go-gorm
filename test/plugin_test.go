@@ -59,6 +59,23 @@ func (s *PluginSuite) TestPlugin() {
 	createdAt, err := time.Parse(time.RFC3339Nano, updates[0].CreatedAt)
 	require.NoError(s.T(), err)
 	require.NotEqual(s.T(), createdAt.UnixMilli(), updates[0].UpdatedAt.AsTime().UnixMilli())
+	// test list
+	listedUsers := UserProtos{}
+	err = listedUsers.List(context.Background(), db, 100, 0, nil)
+	require.NoError(s.T(), err)
+	assertProtosEquality(s.T(), updates, listedUsers)
+	// test get by ids
+	ids := []string{*listedUsers[0].Id}
+	fetchedUsers := UserProtos{}
+	err = fetchedUsers.GetByIds(context.Background(), db, ids)
+	require.NoError(s.T(), err)
+	assertProtosEquality(s.T(), listedUsers, fetchedUsers)
+	// test delete
+	err = DeleteUserGormModels(context.Background(), db, ids)
+	require.NoError(s.T(), err)
+	err = listedUsers.List(context.Background(), db, 100, 0, nil)
+	require.NoError(s.T(), err)
+	require.Len(s.T(), listedUsers, 0)
 }
 
 func (s *PluginSuite) TestSliceTransformers() {
