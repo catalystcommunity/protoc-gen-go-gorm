@@ -5,6 +5,30 @@ import "text/template"
 var messageTemplate = template.Must(template.New("message").Funcs(templateFuncs).Parse(`
 type {{ .Model.Name }}s []*{{ .Model.Name }}
 type {{.GoIdent.GoName}}Protos []*{{.GoIdent.GoName}}
+type {{ .Model.Name }} struct {
+	{{- range .Model.Fields }}
+    {{ if .ShouldGenerateBelongsToIdField }}
+    {{ .Options.GetBelongsTo.Foreignkey }} *string {{ emptyTag }}
+    {{ end }}
+    {{ .Comments -}}
+    {{ .GoName }} {{ .ModelType }} {{ .Tag -}}
+	{{ end }}
+}
+
+func (m *{{ .Model.Name }}) BeforeSave(tx *gorm.DB) (err error) {
+	timestamp := time.Now()
+	if m.CreatedAt == nil {
+        // createdAt not set, set it
+		m.CreatedAt = &timestamp
+	}
+    // always set updatedAt
+	m.UpdatedAt = &timestamp
+	return
+}
+
+func (m *{{ .Model.Name }}) TableName() string {
+	return "{{ .Model.TableName }}"
+}
 
 func (m {{ .Model.Name }}s) ToProtos() (protos {{.GoIdent.GoName}}Protos, err error) {
 	protos = {{.GoIdent.GoName}}Protos{}
@@ -28,20 +52,6 @@ func (p {{.GoIdent.GoName}}Protos) ToModels() (models {{ .Model.Name }}s, err er
 		models = append(models, model)
 	}
 	return
-}
-
-type {{ .Model.Name }} struct {
-	{{- range .Model.Fields }}
-    {{ if .ShouldGenerateBelongsToIdField }}
-    {{ .Options.GetBelongsTo.Foreignkey }} *string {{ emptyTag }}
-    {{ end }}
-    {{ .Comments -}}
-    {{ .GoName }} {{ .ModelType }} {{ .Tag -}}
-	{{ end }}
-}
-
-func (m *{{ .Model.Name }}) TableName() string {
-	return "{{ .Model.TableName }}"
 }
 
 func (m *{{ .Model.Name }}) ToProto() (theProto *{{.GoIdent.GoName}}, err error) {
@@ -187,6 +197,61 @@ func (p *{{.GoIdent.GoName}}) ToModel() (theModel *{{ .Model.Name }}, err error)
     theModel.{{ .GoName }} = p.{{ .GoName }}
     {{ end }}
 	{{ end }}
+	return
+}
+
+func (m {{ .Model.Name }}s) GetByModelIds(ctx context.Context, db *gorm.DB) (err error) {
+	ids := []string{}
+	for _, model := range m {
+		if model.Id != nil {
+			ids = append(ids, *model.Id)
+		}
+	}
+	if len(ids) > 0 {
+		err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
+			return tx.Preload(clause.Associations).Where("id in ?", ids).Find(&m).Error
+		})
+	}
+	return
+}
+
+func (p *{{.GoIdent.GoName}}Protos) Upsert(ctx context.Context, db *gorm.DB) (err error) {
+	if p != nil {
+		creates := {{ .Model.Name }}s{}
+		updates := {{ .Model.Name }}s{}
+		var model *{{ .Model.Name }}
+		for _, filter := range *p {
+			if model, err = filter.ToModel(); err != nil {
+				return
+			}
+			model.UpdatedAt = nil
+			if model.Id == nil {
+				creates = append(creates, model)
+			} else {
+				updates = append(updates, model)
+			}
+		}
+		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
+			if len(creates) > 0 {
+				if err = tx.Clauses(clause.Returning{}).Create(&creates).Error; err != nil {
+					return err
+				}
+			}
+			if len(updates) > 0 {
+				if err = tx.Clauses(clause.Returning{}).Save(&updates).Error; err != nil {
+					return err
+				}
+			}
+			return nil
+		}); err != nil {
+			return
+		}
+		allModels := append(creates, updates...)
+		if err = allModels.GetByModelIds(ctx, db); err != nil {
+			return
+		}
+		*p, err = allModels.ToProtos()
+	}
 	return
 }
 `))

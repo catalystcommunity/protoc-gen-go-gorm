@@ -1,6 +1,7 @@
 package test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/brianvoe/gofakeit/v6"
@@ -11,11 +12,16 @@ import (
 	"github.com/orlangure/gnomock/preset/cockroachdb"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"gorm.io/gorm/logger"
+	"log"
+	"os"
 	"testing"
+	"time"
 )
 
 var container *gnomock.Container
@@ -32,18 +38,27 @@ func TestPluginSuite(t *testing.T) {
 func (s *PluginSuite) TestPlugin() {
 	user, err := s.getPopulatedUser()
 	require.NoError(s.T(), err)
-	userModel, err := user.ToModel()
-	require.NoError(s.T(), err)
-	err = db.Create(&userModel).Error
-	require.NoError(s.T(), err)
+	users := UserProtos{user}
+	err = users.Upsert(context.Background(), db)
+	expectedCreatedAt := users[0].CreatedAt
 	var firstUserModel *UserGormModel
 	var firstUser *User
 	err = db.Joins("Company").Joins("Address").Preload(clause.Associations).First(&firstUserModel).Error
 	require.NoError(s.T(), err)
-	assertModelsEquality(s.T(), userModel, firstUserModel)
 	firstUser, err = firstUserModel.ToProto()
 	require.NoError(s.T(), err)
-	assertProtosEquality(s.T(), user, firstUser)
+	assertProtosEquality(s.T(), users[0], firstUser)
+	// do an update to ensure updated at field is updated and created
+	time.Sleep(2 * time.Second)
+	firstUser.AnInt32 = gofakeit.Int32()
+	update := proto.Clone(firstUser)
+	updates := UserProtos{update.(*User)}
+	err = updates.Upsert(context.Background(), db)
+	require.NoError(s.T(), err)
+	require.Equal(s.T(), expectedCreatedAt, updates[0].CreatedAt)
+	createdAt, err := time.Parse(time.RFC3339Nano, updates[0].CreatedAt)
+	require.NoError(s.T(), err)
+	require.NotEqual(s.T(), createdAt.UnixMilli(), updates[0].UpdatedAt.AsTime().UnixMilli())
 }
 
 func (s *PluginSuite) TestSliceTransformers() {
@@ -80,11 +95,6 @@ func assertProtosEquality(t *testing.T, expected, actual interface{}, ignoreFiel
 			expected,
 			actual,
 			protocmp.Transform(),
-			protocmp.IgnoreFields(&User{}, "created_at", "id", "updated_at", "company_two_id", "an_unexpected_id"),
-			protocmp.IgnoreFields(&Company{}, "created_at", "id", "updated_at"),
-			protocmp.IgnoreFields(&Address{}, "created_at", "id", "updated_at", "user_id"),
-			protocmp.IgnoreFields(&Comment{}, "created_at", "id", "updated_at", "user_id"),
-			protocmp.IgnoreFields(&Profile{}, "created_at", "id", "updated_at"),
 			protocmp.SortRepeated(func(x, y *Comment) bool {
 				return x.Name < y.Name
 			}),
@@ -147,7 +157,15 @@ func (s *PluginSuite) SetupSuite() {
 	container, err = gnomock.Start(preset, portOpt)
 	require.NoError(s.T(), err)
 	dsn := fmt.Sprintf("host=%s port=%d user=root dbname=%s sslmode=disable", container.Host, container.DefaultPort(), "postgres")
-	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	logger := logger.New(
+		log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
+		logger.Config{
+			LogLevel:                  logger.Info, // Log level
+			IgnoreRecordNotFoundError: true,        // Ignore ErrRecordNotFound error for logger
+			Colorful:                  true,        // Disable color
+		},
+	)
+	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger})
 	require.NoError(s.T(), err)
 	err = db.AutoMigrate(&UserGormModel{}, &AddressGormModel{}, &CommentGormModel{})
 	require.NoError(s.T(), err)

@@ -217,7 +217,7 @@ func getGormFieldTag(field *ModelField) string {
 	if isIdField(field.Field) {
 		tag += "type:uuid;primaryKey;default:gen_random_uuid();"
 	} else if isTimestamp(field.Field) {
-		tag += "type:timestamp;default:now();"
+		tag += "type:timestamp;"
 	} else if isStructPb(field.Field) {
 		tag += fmt.Sprintf("type:jsonb")
 	} else if isRepeated(field.Field) && field.Enum != nil {
