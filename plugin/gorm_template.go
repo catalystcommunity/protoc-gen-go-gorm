@@ -3,6 +3,33 @@ package plugin
 import "text/template"
 
 var messageTemplate = template.Must(template.New("message").Funcs(templateFuncs).Parse(`
+type {{ .Model.Name }}s []*{{ .Model.Name }}
+type {{.GoIdent.GoName}}Protos []*{{.GoIdent.GoName}}
+
+func (m {{ .Model.Name }}s) ToProtos() (protos {{.GoIdent.GoName}}Protos, err error) {
+	protos = {{.GoIdent.GoName}}Protos{}
+	for _, model := range m {
+		var proto *{{.GoIdent.GoName}}
+		if proto, err = model.ToProto(); err != nil {
+			return
+		}
+		protos = append(protos, proto)
+	}
+	return
+}
+
+func (p {{.GoIdent.GoName}}Protos) ToModels() (models {{ .Model.Name }}s, err error) {
+	models = {{ .Model.Name }}s{}
+	for _, proto := range p {
+		var model *{{ .Model.Name }}
+		if model, err = proto.ToModel(); err != nil {
+			return
+		}
+		models = append(models, model)
+	}
+	return
+}
+
 type {{ .Model.Name }} struct {
 	{{- range .Model.Fields }}
     {{ if .ShouldGenerateBelongsToIdField }}

@@ -12,6 +12,33 @@ import (
 	time "time"
 )
 
+type ThingGormModels []*ThingGormModel
+type ThingProtos []*Thing
+
+func (m ThingGormModels) ToProtos() (protos ThingProtos, err error) {
+	protos = ThingProtos{}
+	for _, model := range m {
+		var proto *Thing
+		if proto, err = model.ToProto(); err != nil {
+			return
+		}
+		protos = append(protos, proto)
+	}
+	return
+}
+
+func (p ThingProtos) ToModels() (models ThingGormModels, err error) {
+	models = ThingGormModels{}
+	for _, proto := range p {
+		var model *ThingGormModel
+		if model, err = proto.ToModel(); err != nil {
+			return
+		}
+		models = append(models, model)
+	}
+	return
+}
+
 type ThingGormModel struct {
 
 	// @gotags: fake:"skip"
@@ -360,6 +387,33 @@ func (p *Thing) ToModel() (theModel *ThingGormModel, err error) {
 	return
 }
 
+type BelongsToThingGormModels []*BelongsToThingGormModel
+type BelongsToThingProtos []*BelongsToThing
+
+func (m BelongsToThingGormModels) ToProtos() (protos BelongsToThingProtos, err error) {
+	protos = BelongsToThingProtos{}
+	for _, model := range m {
+		var proto *BelongsToThing
+		if proto, err = model.ToProto(); err != nil {
+			return
+		}
+		protos = append(protos, proto)
+	}
+	return
+}
+
+func (p BelongsToThingProtos) ToModels() (models BelongsToThingGormModels, err error) {
+	models = BelongsToThingGormModels{}
+	for _, proto := range p {
+		var model *BelongsToThingGormModel
+		if model, err = proto.ToModel(); err != nil {
+			return
+		}
+		models = append(models, model)
+	}
+	return
+}
+
 type BelongsToThingGormModel struct {
 
 	// @gotags: fake:"skip"
@@ -418,6 +472,33 @@ func (p *BelongsToThing) ToModel() (theModel *BelongsToThingGormModel, err error
 
 	theModel.Name = p.Name
 
+	return
+}
+
+type HasOneThingGormModels []*HasOneThingGormModel
+type HasOneThingProtos []*HasOneThing
+
+func (m HasOneThingGormModels) ToProtos() (protos HasOneThingProtos, err error) {
+	protos = HasOneThingProtos{}
+	for _, model := range m {
+		var proto *HasOneThing
+		if proto, err = model.ToProto(); err != nil {
+			return
+		}
+		protos = append(protos, proto)
+	}
+	return
+}
+
+func (p HasOneThingProtos) ToModels() (models HasOneThingGormModels, err error) {
+	models = HasOneThingGormModels{}
+	for _, proto := range p {
+		var model *HasOneThingGormModel
+		if model, err = proto.ToModel(); err != nil {
+			return
+		}
+		models = append(models, model)
+	}
 	return
 }
 
@@ -489,6 +570,33 @@ func (p *HasOneThing) ToModel() (theModel *HasOneThingGormModel, err error) {
 	return
 }
 
+type HasManyThingGormModels []*HasManyThingGormModel
+type HasManyThingProtos []*HasManyThing
+
+func (m HasManyThingGormModels) ToProtos() (protos HasManyThingProtos, err error) {
+	protos = HasManyThingProtos{}
+	for _, model := range m {
+		var proto *HasManyThing
+		if proto, err = model.ToProto(); err != nil {
+			return
+		}
+		protos = append(protos, proto)
+	}
+	return
+}
+
+func (p HasManyThingProtos) ToModels() (models HasManyThingGormModels, err error) {
+	models = HasManyThingGormModels{}
+	for _, proto := range p {
+		var model *HasManyThingGormModel
+		if model, err = proto.ToModel(); err != nil {
+			return
+		}
+		models = append(models, model)
+	}
+	return
+}
+
 type HasManyThingGormModel struct {
 
 	// @gotags: fake:"skip"
@@ -554,6 +662,33 @@ func (p *HasManyThing) ToModel() (theModel *HasManyThingGormModel, err error) {
 
 	theModel.ThingId = p.ThingId
 
+	return
+}
+
+type ManyToManyThingGormModels []*ManyToManyThingGormModel
+type ManyToManyThingProtos []*ManyToManyThing
+
+func (m ManyToManyThingGormModels) ToProtos() (protos ManyToManyThingProtos, err error) {
+	protos = ManyToManyThingProtos{}
+	for _, model := range m {
+		var proto *ManyToManyThing
+		if proto, err = model.ToProto(); err != nil {
+			return
+		}
+		protos = append(protos, proto)
+	}
+	return
+}
+
+func (p ManyToManyThingProtos) ToModels() (models ManyToManyThingGormModels, err error) {
+	models = ManyToManyThingGormModels{}
+	for _, proto := range p {
+		var model *ManyToManyThingGormModel
+		if model, err = proto.ToModel(); err != nil {
+			return
+		}
+		models = append(models, model)
+	}
 	return
 }
 
