@@ -418,40 +418,19 @@ func (m UserGormModels) GetByModelIds(ctx context.Context, db *gorm.DB) (err err
 
 func (p *UserProtos) Upsert(ctx context.Context, db *gorm.DB) (err error) {
 	if p != nil {
-		creates := UserGormModels{}
-		updates := UserGormModels{}
-		var model *UserGormModel
-		for _, filter := range *p {
-			if model, err = filter.ToModel(); err != nil {
-				return
-			}
-			model.UpdatedAt = nil
-			if model.Id == nil {
-				creates = append(creates, model)
-			} else {
-				updates = append(updates, model)
-			}
+		var models UserGormModels
+		if models, err = p.ToModels(); err != nil {
+			return
 		}
 		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
-			if len(creates) > 0 {
-				if err = tx.Clauses(clause.Returning{}).Create(&creates).Error; err != nil {
-					return err
-				}
-			}
-			if len(updates) > 0 {
-				if err = tx.Clauses(clause.Returning{}).Save(&updates).Error; err != nil {
-					return err
-				}
-			}
-			return nil
+			return tx.Clauses(clause.Returning{}).Save(&models).Error
 		}); err != nil {
 			return
 		}
-		allModels := append(creates, updates...)
-		if err = allModels.GetByModelIds(ctx, db); err != nil {
+		if err = models.GetByModelIds(ctx, db); err != nil {
 			return
 		}
-		*p, err = allModels.ToProtos()
+		*p, err = models.ToProtos()
 	}
 	return
 }
@@ -571,40 +550,19 @@ func (m CompanyGormModels) GetByModelIds(ctx context.Context, db *gorm.DB) (err 
 
 func (p *CompanyProtos) Upsert(ctx context.Context, db *gorm.DB) (err error) {
 	if p != nil {
-		creates := CompanyGormModels{}
-		updates := CompanyGormModels{}
-		var model *CompanyGormModel
-		for _, filter := range *p {
-			if model, err = filter.ToModel(); err != nil {
-				return
-			}
-			model.UpdatedAt = nil
-			if model.Id == nil {
-				creates = append(creates, model)
-			} else {
-				updates = append(updates, model)
-			}
+		var models CompanyGormModels
+		if models, err = p.ToModels(); err != nil {
+			return
 		}
 		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
-			if len(creates) > 0 {
-				if err = tx.Clauses(clause.Returning{}).Create(&creates).Error; err != nil {
-					return err
-				}
-			}
-			if len(updates) > 0 {
-				if err = tx.Clauses(clause.Returning{}).Save(&updates).Error; err != nil {
-					return err
-				}
-			}
-			return nil
+			return tx.Clauses(clause.Returning{}).Save(&models).Error
 		}); err != nil {
 			return
 		}
-		allModels := append(creates, updates...)
-		if err = allModels.GetByModelIds(ctx, db); err != nil {
+		if err = models.GetByModelIds(ctx, db); err != nil {
 			return
 		}
-		*p, err = allModels.ToProtos()
+		*p, err = models.ToProtos()
 	}
 	return
 }
@@ -731,40 +689,19 @@ func (m AddressGormModels) GetByModelIds(ctx context.Context, db *gorm.DB) (err 
 
 func (p *AddressProtos) Upsert(ctx context.Context, db *gorm.DB) (err error) {
 	if p != nil {
-		creates := AddressGormModels{}
-		updates := AddressGormModels{}
-		var model *AddressGormModel
-		for _, filter := range *p {
-			if model, err = filter.ToModel(); err != nil {
-				return
-			}
-			model.UpdatedAt = nil
-			if model.Id == nil {
-				creates = append(creates, model)
-			} else {
-				updates = append(updates, model)
-			}
+		var models AddressGormModels
+		if models, err = p.ToModels(); err != nil {
+			return
 		}
 		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
-			if len(creates) > 0 {
-				if err = tx.Clauses(clause.Returning{}).Create(&creates).Error; err != nil {
-					return err
-				}
-			}
-			if len(updates) > 0 {
-				if err = tx.Clauses(clause.Returning{}).Save(&updates).Error; err != nil {
-					return err
-				}
-			}
-			return nil
+			return tx.Clauses(clause.Returning{}).Save(&models).Error
 		}); err != nil {
 			return
 		}
-		allModels := append(creates, updates...)
-		if err = allModels.GetByModelIds(ctx, db); err != nil {
+		if err = models.GetByModelIds(ctx, db); err != nil {
 			return
 		}
-		*p, err = allModels.ToProtos()
+		*p, err = models.ToProtos()
 	}
 	return
 }
@@ -891,40 +828,19 @@ func (m CommentGormModels) GetByModelIds(ctx context.Context, db *gorm.DB) (err 
 
 func (p *CommentProtos) Upsert(ctx context.Context, db *gorm.DB) (err error) {
 	if p != nil {
-		creates := CommentGormModels{}
-		updates := CommentGormModels{}
-		var model *CommentGormModel
-		for _, filter := range *p {
-			if model, err = filter.ToModel(); err != nil {
-				return
-			}
-			model.UpdatedAt = nil
-			if model.Id == nil {
-				creates = append(creates, model)
-			} else {
-				updates = append(updates, model)
-			}
+		var models CommentGormModels
+		if models, err = p.ToModels(); err != nil {
+			return
 		}
 		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
-			if len(creates) > 0 {
-				if err = tx.Clauses(clause.Returning{}).Create(&creates).Error; err != nil {
-					return err
-				}
-			}
-			if len(updates) > 0 {
-				if err = tx.Clauses(clause.Returning{}).Save(&updates).Error; err != nil {
-					return err
-				}
-			}
-			return nil
+			return tx.Clauses(clause.Returning{}).Save(&models).Error
 		}); err != nil {
 			return
 		}
-		allModels := append(creates, updates...)
-		if err = allModels.GetByModelIds(ctx, db); err != nil {
+		if err = models.GetByModelIds(ctx, db); err != nil {
 			return
 		}
-		*p, err = allModels.ToProtos()
+		*p, err = models.ToProtos()
 	}
 	return
 }
@@ -1044,40 +960,19 @@ func (m ProfileGormModels) GetByModelIds(ctx context.Context, db *gorm.DB) (err 
 
 func (p *ProfileProtos) Upsert(ctx context.Context, db *gorm.DB) (err error) {
 	if p != nil {
-		creates := ProfileGormModels{}
-		updates := ProfileGormModels{}
-		var model *ProfileGormModel
-		for _, filter := range *p {
-			if model, err = filter.ToModel(); err != nil {
-				return
-			}
-			model.UpdatedAt = nil
-			if model.Id == nil {
-				creates = append(creates, model)
-			} else {
-				updates = append(updates, model)
-			}
+		var models ProfileGormModels
+		if models, err = p.ToModels(); err != nil {
+			return
 		}
 		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
-			if len(creates) > 0 {
-				if err = tx.Clauses(clause.Returning{}).Create(&creates).Error; err != nil {
-					return err
-				}
-			}
-			if len(updates) > 0 {
-				if err = tx.Clauses(clause.Returning{}).Save(&updates).Error; err != nil {
-					return err
-				}
-			}
-			return nil
+			return tx.Clauses(clause.Returning{}).Save(&models).Error
 		}); err != nil {
 			return
 		}
-		allModels := append(creates, updates...)
-		if err = allModels.GetByModelIds(ctx, db); err != nil {
+		if err = models.GetByModelIds(ctx, db); err != nil {
 			return
 		}
-		*p, err = allModels.ToProtos()
+		*p, err = models.ToProtos()
 	}
 	return
 }

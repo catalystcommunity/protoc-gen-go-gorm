@@ -217,40 +217,19 @@ func (m {{ .Model.Name }}s) GetByModelIds(ctx context.Context, db *gorm.DB) (err
 
 func (p *{{.GoIdent.GoName}}Protos) Upsert(ctx context.Context, db *gorm.DB) (err error) {
 	if p != nil {
-		creates := {{ .Model.Name }}s{}
-		updates := {{ .Model.Name }}s{}
-		var model *{{ .Model.Name }}
-		for _, filter := range *p {
-			if model, err = filter.ToModel(); err != nil {
-				return
-			}
-			model.UpdatedAt = nil
-			if model.Id == nil {
-				creates = append(creates, model)
-			} else {
-				updates = append(updates, model)
-			}
+		var models {{ .Model.Name }}s
+		if models, err = p.ToModels(); err != nil {
+			return
 		}
 		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
-			if len(creates) > 0 {
-				if err = tx.Clauses(clause.Returning{}).Create(&creates).Error; err != nil {
-					return err
-				}
-			}
-			if len(updates) > 0 {
-				if err = tx.Clauses(clause.Returning{}).Save(&updates).Error; err != nil {
-					return err
-				}
-			}
-			return nil
+			return tx.Clauses(clause.Returning{}).Save(&models).Error
 		}); err != nil {
 			return
 		}
-		allModels := append(creates, updates...)
-		if err = allModels.GetByModelIds(ctx, db); err != nil {
+		if err = models.GetByModelIds(ctx, db); err != nil {
 			return
 		}
-		*p, err = allModels.ToProtos()
+		*p, err = models.ToProtos()
 	}
 	return
 }
