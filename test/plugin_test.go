@@ -47,14 +47,14 @@ func (s *PluginSuite) TestPlugin() {
 }
 
 func (s *PluginSuite) TestSliceTransformers() {
-	thing, err := s.getPopulatedThing()
+	user, err := s.getPopulatedUser()
 	require.NoError(s.T(), err)
-	things := ThingProtos{thing}
-	models, err := things.ToModels()
+	users := UserProtos{user}
+	models, err := users.ToModels()
 	require.NoError(s.T(), err)
 	transformedThings, err := models.ToProtos()
 	require.NoError(s.T(), err)
-	assertProtosEquality(s.T(), things, transformedThings)
+	assertProtosEquality(s.T(), users, transformedThings)
 }
 
 func assertModelsEquality(t *testing.T, expected, actual interface{}) {
