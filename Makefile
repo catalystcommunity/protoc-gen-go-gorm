@@ -4,11 +4,15 @@ build-example:
 	go install
 	go install github.com/favadi/protoc-go-inject-tag@latest
 	go install github.com/mitchellh/protoc-gen-go-json@latest
-	buf generate --template example/demo/buf.gen.yaml --path example/demo
-	protoc-go-inject-tag -input example/demo/*.*.*.go
-	protoc-go-inject-tag -input example/demo/*.*.go
+	buf generate --template example/cockroachdb/buf.gen.yaml --path example/cockroachdb
+	protoc-go-inject-tag -input example/cockroachdb/*.*.*.go
+	protoc-go-inject-tag -input example/cockroachdb/*.*.go
+	buf generate --template example/postgres/buf.gen.yaml --path example/postgres
+	protoc-go-inject-tag -input example/postgres/*.*.*.go
+	protoc-go-inject-tag -input example/postgres/*.*.go
 clean:
-	rm -f example/demo/*.go
+	rm -f example/cockroachdb/*.go
+	rm -f example/postgres/*.go
 	rm -f options/*.go
 generate: clean build-options build-example
 test: generate

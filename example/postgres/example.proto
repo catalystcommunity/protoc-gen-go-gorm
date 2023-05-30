@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package example;
+package example.postgres;
 
 option go_package = "github.com/catalystsquad/protoc-gen-go-gorm/example;example";
 

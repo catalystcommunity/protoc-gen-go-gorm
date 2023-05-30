@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/brianvoe/gofakeit/v6"
-	. "github.com/catalystsquad/protoc-gen-go-gorm/example/demo"
+	. "github.com/catalystsquad/protoc-gen-go-gorm/example/postgres"
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
+	_ "github.com/lib/pq" // postgres driver
 	"github.com/orlangure/gnomock"
-	"github.com/orlangure/gnomock/preset/cockroachdb"
+	preset "github.com/orlangure/gnomock/preset/postgres"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/protobuf/proto"
@@ -24,26 +24,26 @@ import (
 	"time"
 )
 
-var container *gnomock.Container
-var db *gorm.DB
+var postgresContainer *gnomock.Container
+var postgresDb *gorm.DB
 
-type PluginSuite struct {
+type PostgresPluginSuite struct {
 	suite.Suite
 }
 
-func TestPluginSuite(t *testing.T) {
+func TestPostgresPluginSuite(t *testing.T) {
 	suite.Run(t, new(PluginSuite))
 }
 
-func (s *PluginSuite) TestPlugin() {
-	user, err := s.getPopulatedUser()
+func (s *PluginSuite) PostgresPluginSuite() {
+	user, err := getPostgresPopulatedUser(s.T())
 	require.NoError(s.T(), err)
 	users := UserProtos{user}
-	err = users.Upsert(context.Background(), db)
+	err = users.Upsert(context.Background(), postgresDb)
 	expectedCreatedAt := users[0].CreatedAt
 	var firstUserModel *UserGormModel
 	var firstUser *User
-	err = db.Joins("Company").Joins("Address").Preload(clause.Associations).First(&firstUserModel).Error
+	err = postgresDb.Joins("Company").Joins("Address").Preload(clause.Associations).First(&firstUserModel).Error
 	require.NoError(s.T(), err)
 	firstUser, err = firstUserModel.ToProto()
 	require.NoError(s.T(), err)
@@ -53,7 +53,7 @@ func (s *PluginSuite) TestPlugin() {
 	firstUser.AnInt32 = gofakeit.Int32()
 	update := proto.Clone(firstUser)
 	updates := UserProtos{update.(*User)}
-	err = updates.Upsert(context.Background(), db)
+	err = updates.Upsert(context.Background(), postgresDb)
 	require.NoError(s.T(), err)
 	require.Equal(s.T(), expectedCreatedAt, updates[0].CreatedAt)
 	createdAt, err := time.Parse(time.RFC3339Nano, updates[0].CreatedAt)
@@ -61,25 +61,25 @@ func (s *PluginSuite) TestPlugin() {
 	require.NotEqual(s.T(), createdAt.UnixMilli(), updates[0].UpdatedAt.AsTime().UnixMilli())
 	// test list
 	listedUsers := UserProtos{}
-	err = listedUsers.List(context.Background(), db, 100, 0, nil)
+	err = listedUsers.List(context.Background(), postgresDb, 100, 0, nil)
 	require.NoError(s.T(), err)
 	assertProtosEquality(s.T(), updates, listedUsers)
 	// test get by ids
 	ids := []string{*listedUsers[0].Id}
 	fetchedUsers := UserProtos{}
-	err = fetchedUsers.GetByIds(context.Background(), db, ids)
+	err = fetchedUsers.GetByIds(context.Background(), postgresDb, ids)
 	require.NoError(s.T(), err)
 	assertProtosEquality(s.T(), listedUsers, fetchedUsers)
 	// test delete
-	err = DeleteUserGormModels(context.Background(), db, ids)
+	err = DeleteUserGormModels(context.Background(), postgresDb, ids)
 	require.NoError(s.T(), err)
-	err = listedUsers.List(context.Background(), db, 100, 0, nil)
+	err = listedUsers.List(context.Background(), postgresDb, 100, 0, nil)
 	require.NoError(s.T(), err)
 	require.Len(s.T(), listedUsers, 0)
 }
 
-func (s *PluginSuite) TestSliceTransformers() {
-	user, err := s.getPopulatedUser()
+func (s *PostgresPluginSuite) TestSliceTransformers() {
+	user, err := getPostgresPopulatedUser(s.T())
 	require.NoError(s.T(), err)
 	users := UserProtos{user}
 	models, err := users.ToModels()
@@ -89,22 +89,43 @@ func (s *PluginSuite) TestSliceTransformers() {
 	assertProtosEquality(s.T(), users, transformedThings)
 }
 
-func assertModelsEquality(t *testing.T, expected, actual interface{}) {
-	// no need to ignore id, created_at, updated_at because gorm populates them on create
-	require.Empty(t, cmp.Diff(
-		expected,
-		actual,
-		cmpopts.SortSlices(func(x, y *CommentGormModel) bool {
-			return x.Name < y.Name
-		}),
-		cmpopts.SortSlices(func(x, y *ProfileGormModel) bool {
-			return x.Name < y.Name
-		}),
-		cmpopts.IgnoreFields(UserGormModel{}, "AStructpb"),
-	))
+func (s *PostgresPluginSuite) SetupSuite() {
+	preset := preset.Preset(
+		preset.WithUser("postgres", "postgres"),
+		preset.WithDatabase("postgres"),
+		preset.WithQueriesFile("postgres_queries.sql"),
+	)
+	var err error
+	portOpt := gnomock.WithCustomNamedPorts(gnomock.NamedPorts{"default": gnomock.Port{
+		Protocol: "tcp",
+		Port:     5432,
+		HostPort: 5432,
+	}})
+	postgresContainer, err = gnomock.Start(preset, portOpt)
+	require.NoError(s.T(), err)
+	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s", postgresContainer.Host, postgresContainer.DefaultPort(), "postgres", "postgres", "postgres", "disable")
+	logger := logger.New(
+		log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
+		logger.Config{
+			LogLevel:                  logger.Info, // Log level
+			IgnoreRecordNotFoundError: true,        // Ignore ErrRecordNotFound error for logger
+			Colorful:                  true,        // Disable color
+		},
+	)
+	postgresDb, err = gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger})
+	require.NoError(s.T(), err)
+	err = postgresDb.AutoMigrate(&UserGormModel{}, &AddressGormModel{}, &CommentGormModel{})
+	require.NoError(s.T(), err)
 }
 
-func assertProtosEquality(t *testing.T, expected, actual interface{}, ignoreFields ...string) {
+func (s *PostgresPluginSuite) TearDownSuite() {
+	require.NoError(s.T(), gnomock.Stop(postgresContainer))
+}
+
+func (s *PostgresPluginSuite) SetupTest() {
+}
+
+func assertPostgresProtosEquality(t *testing.T, expected, actual interface{}, ignoreFields ...string) {
 	// ignoring id, created_at, updated_at, user_id because the original proto doesn't have those, but the
 	// one converted from the created model does
 	require.Empty(t,
@@ -122,34 +143,34 @@ func assertProtosEquality(t *testing.T, expected, actual interface{}, ignoreFiel
 	)
 }
 
-func (s *PluginSuite) getPopulatedUser() (thing *User, err error) {
+func getPostgresPopulatedUser(t *testing.T) (thing *User, err error) {
 	thing = &User{}
 	company, company2, company3 := &Company{}, &Company{}, &Company{}
 	address := &Address{}
 	comment1, comment2, comment3 := &Comment{}, &Comment{}, &Comment{}
 	profile1, profile2, profile3 := &Profile{}, &Profile{}, &Profile{}
 	err = gofakeit.Struct(&thing)
-	require.NoError(s.T(), err)
+	require.NoError(t, err)
 	err = gofakeit.Struct(&company)
-	require.NoError(s.T(), err)
+	require.NoError(t, err)
 	err = gofakeit.Struct(&company2)
-	require.NoError(s.T(), err)
+	require.NoError(t, err)
 	err = gofakeit.Struct(&company3)
-	require.NoError(s.T(), err)
+	require.NoError(t, err)
 	err = gofakeit.Struct(&address)
-	require.NoError(s.T(), err)
+	require.NoError(t, err)
 	err = gofakeit.Struct(&comment1)
-	require.NoError(s.T(), err)
+	require.NoError(t, err)
 	err = gofakeit.Struct(&comment2)
-	require.NoError(s.T(), err)
+	require.NoError(t, err)
 	err = gofakeit.Struct(&comment3)
-	require.NoError(s.T(), err)
+	require.NoError(t, err)
 	err = gofakeit.Struct(&profile1)
-	require.NoError(s.T(), err)
+	require.NoError(t, err)
 	err = gofakeit.Struct(&profile2)
-	require.NoError(s.T(), err)
+	require.NoError(t, err)
 	err = gofakeit.Struct(&profile3)
-	require.NoError(s.T(), err)
+	require.NoError(t, err)
 	thing.Company = company
 	thing.CompanyTwo = company2
 	thing.CompanyThree = company3
@@ -159,47 +180,6 @@ func (s *PluginSuite) getPopulatedUser() (thing *User, err error) {
 	theMap := gofakeit.Map()
 	bytes, err := json.Marshal(theMap)
 	err = json.Unmarshal(bytes, &thing.AStructpb)
-	require.NoError(s.T(), err)
+	require.NoError(t, err)
 	return
-}
-
-func (s *PluginSuite) SetupSuite() {
-	preset := cockroachdb.Preset()
-	var err error
-	portOpt := gnomock.WithCustomNamedPorts(gnomock.NamedPorts{"default": gnomock.Port{
-		Protocol: "tcp",
-		Port:     26257,
-		HostPort: 26257,
-	}})
-	container, err = gnomock.Start(preset, portOpt)
-	require.NoError(s.T(), err)
-	dsn := fmt.Sprintf("host=%s port=%d user=root dbname=%s sslmode=disable", container.Host, container.DefaultPort(), "postgres")
-	logger := logger.New(
-		log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
-		logger.Config{
-			LogLevel:                  logger.Info, // Log level
-			IgnoreRecordNotFoundError: true,        // Ignore ErrRecordNotFound error for logger
-			Colorful:                  true,        // Disable color
-		},
-	)
-	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger})
-	require.NoError(s.T(), err)
-	err = db.AutoMigrate(&UserGormModel{}, &AddressGormModel{}, &CommentGormModel{})
-	require.NoError(s.T(), err)
-}
-
-func (s *PluginSuite) TearDownSuite() {
-	require.NoError(s.T(), gnomock.Stop(container))
-}
-
-func (s *PluginSuite) SetupTest() {
-}
-
-func convert(source, dest interface{}) (err error) {
-	var sourceBytes []byte
-	if sourceBytes, err = json.Marshal(source); err != nil {
-		return
-	}
-	return json.Unmarshal(sourceBytes, dest)
-
 }
