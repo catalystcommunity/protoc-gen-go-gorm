@@ -13,6 +13,7 @@ type PreparedMessage struct {
 	PluginOptions
 	Options *gorm.GormMessageOptions
 	Ignore  bool
+	Engine  string
 }
 
 func (pm *PreparedMessage) Parse() (err error) {
@@ -25,9 +26,12 @@ func (pm *PreparedMessage) Parse() (err error) {
 	if pm.Ignore {
 		return
 	}
+	pm.Engine = *engine
 	g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "context"})
 	g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "gorm.io/gorm"})
-	g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "github.com/cockroachdb/cockroach-go/v2/crdb/crdbgorm"})
+	if *engine == cockroachdbEngine {
+		g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "github.com/cockroachdb/cockroach-go/v2/crdb/crdbgorm"})
+	}
 	g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "gorm.io/gorm/clause"})
 	model := &Model{Message: pm.Message}
 	if err = model.Parse(); err != nil {

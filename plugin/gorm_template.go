@@ -208,7 +208,11 @@ func (m {{ .Model.Name }}s) GetByModelIds(ctx context.Context, db *gorm.DB) (err
 		}
 	}
 	if len(ids) > 0 {
+		{{ if eq .Engine "cockroachdb" -}}
 		err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
+		{{ else -}}
+		err = db.Transaction(func(tx *gorm.DB) error {
+		{{ end -}}
 			return tx.Preload(clause.Associations).Where("id in ?", ids).Find(&m).Error
 		})
 	}
@@ -221,7 +225,11 @@ func (p *{{.GoIdent.GoName}}Protos) Upsert(ctx context.Context, db *gorm.DB) (er
 		if models, err = p.ToModels(); err != nil {
 			return
 		}
+		{{ if eq .Engine "cockroachdb" -}}
 		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
+		{{ else -}}
+		if err = db.Transaction(func(tx *gorm.DB) error {
+		{{ end -}}
 			return tx.Clauses(clause.Returning{}).Save(&models).Error
 		}); err != nil {
 			return
@@ -237,7 +245,11 @@ func (p *{{.GoIdent.GoName}}Protos) Upsert(ctx context.Context, db *gorm.DB) (er
 func (p *{{.GoIdent.GoName}}Protos) List(ctx context.Context, db *gorm.DB, limit, offset int, order interface{}) (err error) {
 	if p != nil {
 		var models {{ .Model.Name }}s
+		{{ if eq .Engine "cockroachdb" -}}
 		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
+		{{ else -}}
+		if err = db.Transaction(func(tx *gorm.DB) error {
+		{{ end -}}
 			tx = tx.Preload(clause.Associations).Limit(limit).Offset(offset)
 			if order != nil {
 				tx = tx.Order(order)
@@ -254,7 +266,11 @@ func (p *{{.GoIdent.GoName}}Protos) List(ctx context.Context, db *gorm.DB, limit
 func (p *{{.GoIdent.GoName}}Protos) GetByIds(ctx context.Context, db *gorm.DB, ids []string) (err error) {
 	if p != nil {
 		var models {{ .Model.Name }}s
+		{{ if eq .Engine "cockroachdb" -}}
 		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
+		{{ else -}}
+		if err = db.Transaction(func(tx *gorm.DB) error {
+		{{ end -}}
 			return tx.Preload(clause.Associations).Where("id in ?", ids).Find(&models).Error
 		}); err != nil {
 			return
@@ -265,7 +281,11 @@ func (p *{{.GoIdent.GoName}}Protos) GetByIds(ctx context.Context, db *gorm.DB, i
 }
 
 func Delete{{ .Model.Name }}s(ctx context.Context, db *gorm.DB, ids []string) error {
+	{{ if eq .Engine "cockroachdb" -}}
 	return crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
+	{{ else -}}
+	return db.Transaction(func(tx *gorm.DB) error {
+	{{ end -}}
 		return tx.Where("id in ?", ids).Delete(&{{ .Model.Name }}{}).Error	
 	})
 }
