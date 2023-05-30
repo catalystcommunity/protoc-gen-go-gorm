@@ -117,7 +117,7 @@ type UserGormModel struct {
 }
 
 func (m *UserGormModel) BeforeSave(tx *gorm.DB) (err error) {
-	timestamp := time.Now()
+	timestamp := time.Now().UTC()
 	if m.CreatedAt == nil {
 		// createdAt not set, set it
 		m.CreatedAt = &timestamp
@@ -489,7 +489,7 @@ type CompanyGormModel struct {
 }
 
 func (m *CompanyGormModel) BeforeSave(tx *gorm.DB) (err error) {
-	timestamp := time.Now()
+	timestamp := time.Now().UTC()
 	if m.CreatedAt == nil {
 		// createdAt not set, set it
 		m.CreatedAt = &timestamp
@@ -660,7 +660,7 @@ type AddressGormModel struct {
 }
 
 func (m *AddressGormModel) BeforeSave(tx *gorm.DB) (err error) {
-	timestamp := time.Now()
+	timestamp := time.Now().UTC()
 	if m.CreatedAt == nil {
 		// createdAt not set, set it
 		m.CreatedAt = &timestamp
@@ -835,7 +835,7 @@ type CommentGormModel struct {
 }
 
 func (m *CommentGormModel) BeforeSave(tx *gorm.DB) (err error) {
-	timestamp := time.Now()
+	timestamp := time.Now().UTC()
 	if m.CreatedAt == nil {
 		// createdAt not set, set it
 		m.CreatedAt = &timestamp
@@ -1007,7 +1007,7 @@ type ProfileGormModel struct {
 }
 
 func (m *ProfileGormModel) BeforeSave(tx *gorm.DB) (err error) {
-	timestamp := time.Now()
+	timestamp := time.Now().UTC()
 	if m.CreatedAt == nil {
 		// createdAt not set, set it
 		m.CreatedAt = &timestamp
