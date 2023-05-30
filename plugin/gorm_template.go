@@ -16,7 +16,7 @@ type {{ .Model.Name }} struct {
 }
 
 func (m *{{ .Model.Name }}) BeforeSave(tx *gorm.DB) (err error) {
-	timestamp := time.Now()
+	timestamp := time.Now().UTC()
 	if m.CreatedAt == nil {
         // createdAt not set, set it
 		m.CreatedAt = &timestamp
