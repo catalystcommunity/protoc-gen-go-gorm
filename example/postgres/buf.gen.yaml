@@ -1,0 +1,17 @@
+version: v1
+plugins:
+  - remote: buf.build/library/plugins/go:v1.27.1-1
+    out: example
+    opt:
+    - paths=source_relative
+  - name: go-gorm
+    out: example
+    opt:
+      - paths=source_relative
+      - enums_as_ints=true
+      - engine=postgres
+  - name: go-json
+    out: example
+    opt:
+      - paths=source_relative
+      - allow_unknown=true

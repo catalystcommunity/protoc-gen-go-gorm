@@ -9,10 +9,6 @@ import (
 	"google.golang.org/protobuf/types/pluginpb"
 )
 
-var (
-	enumsAsInts = flag.Bool("enums_as_ints", false, "render enums as integers as opposed to strings")
-)
-
 func main() {
 	flag.Parse()
 	defer glog.Flush()
@@ -20,9 +16,6 @@ func main() {
 		ParamFunc: flag.CommandLine.Set,
 	}.Run(func(gp *protogen.Plugin) error {
 		gp.SupportedFeatures = uint64(pluginpb.CodeGeneratorResponse_FEATURE_PROTO3_OPTIONAL)
-		opts := plugin.PluginOptions{
-			EnumsAsInts: *enumsAsInts,
-		}
 
 		for _, name := range gp.Request.FileToGenerate {
 			f := gp.FilesByPath[name]
@@ -37,7 +30,7 @@ func main() {
 
 			gf := gp.NewGeneratedFile(fmt.Sprintf("%s.pb.gorm.go", f.GeneratedFilenamePrefix), f.GoImportPath)
 
-			err := plugin.ApplyTemplate(gf, f, opts)
+			err := plugin.ApplyTemplate(gf, f)
 			if err != nil {
 				gf.Skip()
 				gp.Error(err)

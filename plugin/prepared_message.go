@@ -49,7 +49,7 @@ func getTableNameFromMessage(message *protogen.Message) string {
 	return pluralizer.Plural(strcase.SnakeCase(message.GoIdent.GoName))
 }
 
-func prepareMessages(messages []*protogen.Message, opts PluginOptions) (preparedMessages []*PreparedMessage, err error) {
+func prepareMessages(messages []*protogen.Message) (preparedMessages []*PreparedMessage, err error) {
 	preparedMessages = []*PreparedMessage{}
 	for _, message := range messages {
 		preparedMessage := &PreparedMessage{Message: message}

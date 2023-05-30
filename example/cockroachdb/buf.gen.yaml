@@ -9,6 +9,7 @@ plugins:
     opt:
       - paths=source_relative
       - enums_as_ints=true
+      - engine=cockroachdb
   - name: go-json
     out: example
     opt:

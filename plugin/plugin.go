@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	gorm "github.com/catalystsquad/protoc-gen-go-gorm/options"
 	"github.com/gertd/go-pluralize"
@@ -14,16 +15,24 @@ import (
 	"strings"
 )
 
+var (
+	enumsAsInts = flag.Bool("enums_as_ints", false, "render enums as integers as opposed to strings")
+	engine      = flag.String("engine", "postgres", "database to render templates for, supported engines are 'postgres' and 'cockroachdb'")
+)
+
 type tplHeader struct {
 	*protogen.File
 }
 
 type PluginOptions struct {
 	EnumsAsInts bool
+	Engine      string
 }
 
 const protoTimestampTypeGoName = "Timestamp"
 const gormModelTimestampType = "time.Time"
+const postgresEngine = "postgres"
+const cockroachdbEngine = "cockroachdb"
 
 // I can't find where the constant is for this in protogen, so I'm putting it here.
 const SUPPORTS_OPTIONAL_FIELDS = 1
@@ -44,7 +53,7 @@ var templateFuncs = map[string]any{
 
 var g *protogen.GeneratedFile
 
-func ApplyTemplate(gf *protogen.GeneratedFile, f *protogen.File, opts PluginOptions) (err error) {
+func ApplyTemplate(gf *protogen.GeneratedFile, f *protogen.File) (err error) {
 	g = gf
 	if err = headerTemplate.Execute(gf, tplHeader{
 		File: f,
@@ -52,7 +61,7 @@ func ApplyTemplate(gf *protogen.GeneratedFile, f *protogen.File, opts PluginOpti
 		return
 	}
 	var preparedMessages []*PreparedMessage
-	if preparedMessages, err = prepareMessages(f.Messages, opts); err != nil {
+	if preparedMessages, err = prepareMessages(f.Messages); err != nil {
 		return
 	}
 	return applyMessages(gf, preparedMessages)
@@ -215,7 +224,12 @@ func getFieldTags(field *ModelField) string {
 func getGormFieldTag(field *ModelField) string {
 	tag := "gorm:\""
 	if isIdField(field.Field) {
-		tag += "type:uuid;primaryKey;default:gen_random_uuid();"
+		tag += "type:uuid;primaryKey;"
+		if *engine == "postgres" {
+			tag += "default:uuid_generate_v4();"
+		} else {
+			tag += "default:gen_random_uuid();;"
+		}
 	} else if isTimestamp(field.Field) {
 		tag += "type:timestamp;"
 	} else if isStructPb(field.Field) {
