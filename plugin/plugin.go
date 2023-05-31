@@ -235,24 +235,38 @@ func getGormFieldTag(field *ModelField) string {
 	} else if isStructPb(field.Field) {
 		tag += fmt.Sprintf("type:jsonb")
 	} else if isRepeated(field.Field) && field.Enum != nil {
-		if field.Options.EnumAsString {
-			tag += "type:string[]"
-		} else {
-			tag += "type:int[]"
-		}
+		tag += fmt.Sprintf("type:%s;", repeatedEnumTypeMap[*engine][field.Options.EnumAsString])
 	} else if isRepeated(field.Field) && !isMessage(field.Field) {
-		tag += fmt.Sprintf("type:%s;", gormTagTypeMap[fieldKind(field.Field)])
+		tag += fmt.Sprintf("type:%s;", gormTagTypeMap[*engine][fieldKind(field.Field)])
 	}
 	options := getFieldOptions(field.Field)
 	if options != nil {
 		if options.GetHasOne() != nil || options.GetHasMany() != nil {
-			tag += fmt.Sprintf("foreignKey:%sId;", protoMessageName(field.Parent))
+			tag += "foreignKey:Id;"
 		} else if options.GetManyToMany() != nil {
 			m2mTableName := fmt.Sprintf("%s_%s", getTableNameFromMessage(field.Parent), getTableNameFromMessage(field.Message))
-			tag += fmt.Sprintf("many2many:%s;foreignKey:Id;references:Id;joinForeignKey:%sId;joinReferences:%sId", m2mTableName, field.Parent.GoIdent.GoName, field.Message.GoIdent.GoName)
+			tag += fmt.Sprintf("many2many:%s;foreignKey:Id;references:Id;joinForeignKey:%sId;joinReferences:%sId;", m2mTableName, field.Parent.GoIdent.GoName, field.Message.GoIdent.GoName)
 		} else if options.GetBelongsTo() != nil {
 			if options.GetBelongsTo().Foreignkey != "" {
 				tag = fmt.Sprintf("%sforeignKey:%s;", tag, options.GetBelongsTo().Foreignkey)
+			}
+		}
+	}
+	if options.OnUpdate != "" || options.OnDelete != "" {
+		var onUpdate, onDelete string
+		if options.OnUpdate != "" {
+			onUpdate = fmt.Sprintf("OnUpdate:%s", options.OnUpdate)
+		}
+		if options.OnDelete != "" {
+			onDelete = fmt.Sprintf("OnDelete:%s", options.OnDelete)
+		}
+		if onUpdate != "" && onDelete != "" {
+			tag += fmt.Sprintf("constraint:%s,%s;", onUpdate, onDelete)
+		} else {
+			if onUpdate != "" {
+				tag += fmt.Sprintf("constraint:%s;", onUpdate)
+			} else {
+				tag += fmt.Sprintf("constraint:%s;", onDelete)
 			}
 		}
 	}
@@ -443,15 +457,38 @@ var gormArrayTypeMap = map[protoreflect.Kind]string{
 	protoreflect.BytesKind:  "pq.ByteaArray",
 }
 
-var gormTagTypeMap = map[protoreflect.Kind]string{
-	protoreflect.BoolKind:   "bool[]",
-	protoreflect.EnumKind:   "int[]",
-	protoreflect.Int32Kind:  "int[]",
-	protoreflect.FloatKind:  "float[]",
-	protoreflect.Int64Kind:  "int[]",
-	protoreflect.DoubleKind: "float[]",
-	protoreflect.StringKind: "string[]",
-	protoreflect.BytesKind:  "bytes[]",
+var gormTagTypeMap = map[string]map[protoreflect.Kind]string{
+	cockroachdbEngine: {
+		protoreflect.BoolKind:   "bool[]",
+		protoreflect.EnumKind:   "int[]",
+		protoreflect.Int32Kind:  "int[]",
+		protoreflect.FloatKind:  "float[]",
+		protoreflect.Int64Kind:  "int[]",
+		protoreflect.DoubleKind: "float[]",
+		protoreflect.StringKind: "string[]",
+		protoreflect.BytesKind:  "bytes[]",
+	},
+	postgresEngine: {
+		protoreflect.BoolKind:   "boolean[]",
+		protoreflect.EnumKind:   "smallint[]",
+		protoreflect.Int32Kind:  "integer[]",
+		protoreflect.FloatKind:  "double precision[]",
+		protoreflect.Int64Kind:  "bigint[]",
+		protoreflect.DoubleKind: "double precision[]",
+		protoreflect.StringKind: "text[]",
+		protoreflect.BytesKind:  "bytea[]",
+	},
+}
+
+var repeatedEnumTypeMap = map[string]map[bool]string{
+	cockroachdbEngine: {
+		true:  "string[]",
+		false: "int[]",
+	},
+	postgresEngine: {
+		true:  "text[]",
+		false: "smallint[]",
+	},
 }
 
 var goTypeMap = map[protoreflect.Kind]string{

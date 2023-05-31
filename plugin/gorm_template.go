@@ -15,17 +15,6 @@ type {{ .Model.Name }} struct {
 	{{ end }}
 }
 
-func (m *{{ .Model.Name }}) BeforeSave(tx *gorm.DB) (err error) {
-	timestamp := time.Now().UTC()
-	if m.CreatedAt == nil {
-        // createdAt not set, set it
-		m.CreatedAt = &timestamp
-	}
-    // always set updatedAt
-	m.UpdatedAt = &timestamp
-	return
-}
-
 func (m *{{ .Model.Name }}) TableName() string {
 	return "{{ .Model.TableName }}"
 }
@@ -219,7 +208,7 @@ func (m {{ .Model.Name }}s) GetByModelIds(ctx context.Context, db *gorm.DB) (err
 	return
 }
 
-func (p *{{.GoIdent.GoName}}Protos) Upsert(ctx context.Context, db *gorm.DB) (err error) {
+func (p *{{.GoIdent.GoName}}Protos) Save(ctx context.Context, db *gorm.DB, selects, omits []string, fullSaveAssociations bool) (err error) {
 	if p != nil {
 		var models {{ .Model.Name }}s
 		if models, err = p.ToModels(); err != nil {
@@ -230,7 +219,13 @@ func (p *{{.GoIdent.GoName}}Protos) Upsert(ctx context.Context, db *gorm.DB) (er
 		{{ else -}}
 		if err = db.Transaction(func(tx *gorm.DB) error {
 		{{ end -}}
-			return tx.Clauses(clause.Returning{}).Save(&models).Error
+			if len(selects) > 0 {
+				tx = tx.Select(selects)
+			}
+			if len(omits) > 0 {
+				tx = tx.Omit(omits...)
+			}
+			return tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations}).Save(&models).Error
 		}); err != nil {
 			return
 		}
