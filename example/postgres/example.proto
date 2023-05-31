@@ -62,21 +62,21 @@ message User {
   // @gotags: fake:"skip"
   google.protobuf.Struct a_structpb = 35;
   // @gotags: fake:"skip"
-  Company company = 36 [(gorm.field).belongs_to = {}];
+  Company company = 36 [(gorm.field).belongs_to = {}, (gorm.field).on_delete = "CASCADE"];
   // @gotags: fake:"skip"
   string company_two_id = 37;
   // @gotags: fake:"skip"
-  Company company_two = 38 [(gorm.field).belongs_to = {}];
+  Company company_two = 38 [(gorm.field).belongs_to = {}, (gorm.field).on_delete = "CASCADE"];
   // @gotags: fake:"skip"
   string an_unexpected_id = 39;
   // @gotags: fake:"skip"
-  Company company_three = 40 [(gorm.field).belongs_to = {foreignkey: "AnUnexpectedId"}];
+  Company company_three = 40 [(gorm.field).belongs_to = {foreignkey: "AnUnexpectedId"}, (gorm.field).on_delete = "CASCADE"];
   // @gotags: fake:"skip"
-  Address address = 41 [(gorm.field).has_one = {}];
+  Address address = 41 [(gorm.field).has_one = {}, (gorm.field).on_delete = "CASCADE"];
   // @gotags: fake:"skip"
-  repeated Comment comments = 42 [(gorm.field).has_many = {}];
+  repeated Comment comments = 42 [(gorm.field).has_many = {}, (gorm.field).on_delete = "CASCADE"];
   // @gotags: fake:"skip"
-  repeated Profile profiles = 43 [(gorm.field).many_to_many = {}];
+  repeated Profile profiles = 43 [(gorm.field).many_to_many = {}, (gorm.field).on_delete = "CASCADE"];
   // @gotags: fake:"{number:1,9}"
   EnumOne int_enum = 44;
   // @gotags: fake:"{number:1,9}"

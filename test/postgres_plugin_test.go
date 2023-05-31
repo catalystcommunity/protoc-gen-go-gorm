@@ -32,33 +32,46 @@ type PostgresPluginSuite struct {
 }
 
 func TestPostgresPluginSuite(t *testing.T) {
-	suite.Run(t, new(PluginSuite))
+	suite.Run(t, new(PostgresPluginSuite))
 }
 
-func (s *PluginSuite) PostgresPluginSuite() {
+func (s *PostgresPluginSuite) TestPlugin() {
 	user, err := getPostgresPopulatedUser(s.T())
 	require.NoError(s.T(), err)
 	users := UserProtos{user}
-	err = users.Upsert(context.Background(), postgresDb)
+	err = users.Save(context.Background(), postgresDb, nil, nil, false)
+	require.NoError(s.T(), err)
+	upsertedUser := users[0]
+	require.NotNil(s.T(), upsertedUser.Company)
+	require.NotNil(s.T(), upsertedUser.CompanyTwo)
+	require.NotNil(s.T(), upsertedUser.CompanyThree)
+	require.NotNil(s.T(), upsertedUser.Address)
+	require.Greater(s.T(), len(upsertedUser.Comments), 0)
+	require.Greater(s.T(), len(upsertedUser.Profiles), 0)
 	expectedCreatedAt := users[0].CreatedAt
 	var firstUserModel *UserGormModel
 	var firstUser *User
-	err = postgresDb.Joins("Company").Joins("Address").Preload(clause.Associations).First(&firstUserModel).Error
+	err = postgresDb.Preload(clause.Associations).First(&firstUserModel).Error
 	require.NoError(s.T(), err)
 	firstUser, err = firstUserModel.ToProto()
 	require.NoError(s.T(), err)
 	assertProtosEquality(s.T(), users[0], firstUser)
 	// do an update to ensure updated at field is updated and created
-	time.Sleep(2 * time.Second)
-	firstUser.AnInt32 = gofakeit.Int32()
+	oldInt32 := firstUser.AnInt32
+	newInt32 := gofakeit.Int32()
+	require.NotEqual(s.T(), oldInt32, newInt32)
+	firstUser.AnInt32 = newInt32
 	update := proto.Clone(firstUser)
 	updates := UserProtos{update.(*User)}
-	err = updates.Upsert(context.Background(), postgresDb)
+	updates[0].Company.Name = "derp"
+	err = updates.Save(context.Background(), postgresDb, nil, nil, false)
 	require.NoError(s.T(), err)
 	require.Equal(s.T(), expectedCreatedAt, updates[0].CreatedAt)
 	createdAt, err := time.Parse(time.RFC3339Nano, updates[0].CreatedAt)
 	require.NoError(s.T(), err)
 	require.NotEqual(s.T(), createdAt.UnixMilli(), updates[0].UpdatedAt.AsTime().UnixMilli())
+	require.NotEqual(s.T(), updates[0].AnInt32, oldInt32)
+	require.Equal(s.T(), updates[0].AnInt32, newInt32)
 	// test list
 	listedUsers := UserProtos{}
 	err = listedUsers.List(context.Background(), postgresDb, 100, 0, nil)
@@ -90,9 +103,10 @@ func (s *PostgresPluginSuite) TestSliceTransformers() {
 }
 
 func (s *PostgresPluginSuite) SetupSuite() {
+	s.T().Parallel()
 	preset := preset.Preset(
-		preset.WithUser("postgres", "postgres"),
-		preset.WithDatabase("postgres"),
+		preset.WithUser("test", "test"),
+		preset.WithDatabase("test"),
 		preset.WithQueriesFile("postgres_queries.sql"),
 	)
 	var err error
@@ -103,7 +117,7 @@ func (s *PostgresPluginSuite) SetupSuite() {
 	}})
 	postgresContainer, err = gnomock.Start(preset, portOpt)
 	require.NoError(s.T(), err)
-	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s", postgresContainer.Host, postgresContainer.DefaultPort(), "postgres", "postgres", "postgres", "disable")
+	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s", postgresContainer.Host, postgresContainer.DefaultPort(), "test", "test", "test", "disable")
 	logger := logger.New(
 		log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
 		logger.Config{

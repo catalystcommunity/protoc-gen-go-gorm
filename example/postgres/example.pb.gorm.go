@@ -50,25 +50,25 @@ type UserGormModel struct {
 	ABytes []byte `json:"aBytes" fake:"skip"`
 
 	// @gotags: fake:"{price:0.00,1000.00}"
-	Doubles pq.Float64Array `gorm:"type:float[];" json:"doubles" fake:"{price:0.00,1000.00}"`
+	Doubles pq.Float64Array `gorm:"type:double precision[];" json:"doubles" fake:"{price:0.00,1000.00}"`
 
 	// @gotags: fake:"{price:0.00,1000.00}"
-	Floats pq.Float32Array `gorm:"type:float[];" json:"floats" fake:"{price:0.00,1000.00}"`
+	Floats pq.Float32Array `gorm:"type:double precision[];" json:"floats" fake:"{price:0.00,1000.00}"`
 
 	// @gotags: fake:"{int32}"
-	Int32S pq.Int32Array `gorm:"type:int[];" json:"int32s" fake:"{int32}"`
+	Int32S pq.Int32Array `gorm:"type:integer[];" json:"int32s" fake:"{int32}"`
 
 	// @gotags: fake:"{number:9223372036854775807}"
-	Int64S pq.Int64Array `gorm:"type:int[];" json:"int64s" fake:"{number:9223372036854775807}"`
+	Int64S pq.Int64Array `gorm:"type:bigint[];" json:"int64s" fake:"{number:9223372036854775807}"`
 
 	// @gotags: fake:"{bool}"
-	Bools pq.BoolArray `gorm:"type:bool[];" json:"bools" fake:"{bool}"`
+	Bools pq.BoolArray `gorm:"type:boolean[];" json:"bools" fake:"{bool}"`
 
 	// @gotags: fake:"{hackerphrase}"
-	Strings pq.StringArray `gorm:"type:string[];" json:"strings" fake:"{hackerphrase}"`
+	Strings pq.StringArray `gorm:"type:text[];" json:"strings" fake:"{hackerphrase}"`
 
 	// @gotags: fake:"skip"
-	Bytess pq.ByteaArray `gorm:"type:bytes[];" json:"bytess" fake:"skip"`
+	Bytess pq.ByteaArray `gorm:"type:bytea[];" json:"bytess" fake:"skip"`
 
 	// @gotags: fake:"skip"
 	OptionalScalarField *string `json:"optionalScalarField" fake:"skip"`
@@ -79,28 +79,28 @@ type UserGormModel struct {
 	CompanyId *string ``
 
 	// @gotags: fake:"skip"
-	Company *CompanyGormModel `gorm:"foreignKey:CompanyId;" json:"company" fake:"skip"`
+	Company *CompanyGormModel `gorm:"foreignKey:CompanyId;constraint:OnDelete:CASCADE;" json:"company" fake:"skip"`
 
 	// @gotags: fake:"skip"
 	CompanyTwoId string `json:"companyTwoId" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	CompanyTwo *CompanyGormModel `gorm:"foreignKey:CompanyTwoId;" json:"companyTwo" fake:"skip"`
+	CompanyTwo *CompanyGormModel `gorm:"foreignKey:CompanyTwoId;constraint:OnDelete:CASCADE;" json:"companyTwo" fake:"skip"`
 
 	// @gotags: fake:"skip"
 	AnUnexpectedId string `json:"anUnexpectedId" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	CompanyThree *CompanyGormModel `gorm:"foreignKey:AnUnexpectedId;" json:"companyThree" fake:"skip"`
+	CompanyThree *CompanyGormModel `gorm:"foreignKey:AnUnexpectedId;constraint:OnDelete:CASCADE;" json:"companyThree" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	Address *AddressGormModel `gorm:"foreignKey:UserId;" json:"address" fake:"skip"`
+	Address *AddressGormModel `gorm:"foreignKey:Id;constraint:OnDelete:CASCADE;" json:"address" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	Comments []*CommentGormModel `gorm:"foreignKey:UserId;" json:"comments" fake:"skip"`
+	Comments []*CommentGormModel `gorm:"foreignKey:Id;constraint:OnDelete:CASCADE;" json:"comments" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	Profiles []*ProfileGormModel `gorm:"many2many:users_profiles;foreignKey:Id;references:Id;joinForeignKey:UserId;joinReferences:ProfileId" json:"profiles" fake:"skip"`
+	Profiles []*ProfileGormModel `gorm:"many2many:users_profiles;foreignKey:Id;references:Id;joinForeignKey:UserId;joinReferences:ProfileId;constraint:OnDelete:CASCADE;" json:"profiles" fake:"skip"`
 
 	// @gotags: fake:"{number:1,9}"
 	IntEnum int `json:"intEnum" fake:"{number:1,9}"`
@@ -109,21 +109,10 @@ type UserGormModel struct {
 	StringEnum string `json:"stringEnum" fake:"{number:1,9}"`
 
 	// @gotags: fake:"{number:1,9}"
-	IntEnumList pq.Int32Array `gorm:"type:int[]" json:"intEnumList" fake:"{number:1,9}"`
+	IntEnumList pq.Int32Array `gorm:"type:smallint[];" json:"intEnumList" fake:"{number:1,9}"`
 
 	// @gotags: fake:"{number:1,9}"
-	StringEnumList pq.StringArray `gorm:"type:string[]" json:"stringEnumList" fake:"{number:1,9}"`
-}
-
-func (m *UserGormModel) BeforeSave(tx *gorm.DB) (err error) {
-	timestamp := time.Now().UTC()
-	if m.CreatedAt == nil {
-		// createdAt not set, set it
-		m.CreatedAt = &timestamp
-	}
-	// always set updatedAt
-	m.UpdatedAt = &timestamp
-	return
+	StringEnumList pq.StringArray `gorm:"type:text[];" json:"stringEnumList" fake:"{number:1,9}"`
 }
 
 func (m *UserGormModel) TableName() string {
@@ -415,14 +404,20 @@ func (m UserGormModels) GetByModelIds(ctx context.Context, db *gorm.DB) (err err
 	return
 }
 
-func (p *UserProtos) Upsert(ctx context.Context, db *gorm.DB) (err error) {
+func (p *UserProtos) Save(ctx context.Context, db *gorm.DB, selects, omits []string, fullSaveAssociations bool) (err error) {
 	if p != nil {
 		var models UserGormModels
 		if models, err = p.ToModels(); err != nil {
 			return
 		}
 		if err = db.Transaction(func(tx *gorm.DB) error {
-			return tx.Clauses(clause.Returning{}).Save(&models).Error
+			if len(selects) > 0 {
+				tx = tx.Select(selects)
+			}
+			if len(omits) > 0 {
+				tx = tx.Omit(omits...)
+			}
+			return tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations}).Save(&models).Error
 		}); err != nil {
 			return
 		}
@@ -485,17 +480,6 @@ type CompanyGormModel struct {
 
 	// @gotags: fake:"{name}"
 	Name string `json:"name" fake:"{name}"`
-}
-
-func (m *CompanyGormModel) BeforeSave(tx *gorm.DB) (err error) {
-	timestamp := time.Now().UTC()
-	if m.CreatedAt == nil {
-		// createdAt not set, set it
-		m.CreatedAt = &timestamp
-	}
-	// always set updatedAt
-	m.UpdatedAt = &timestamp
-	return
 }
 
 func (m *CompanyGormModel) TableName() string {
@@ -583,14 +567,20 @@ func (m CompanyGormModels) GetByModelIds(ctx context.Context, db *gorm.DB) (err 
 	return
 }
 
-func (p *CompanyProtos) Upsert(ctx context.Context, db *gorm.DB) (err error) {
+func (p *CompanyProtos) Save(ctx context.Context, db *gorm.DB, selects, omits []string, fullSaveAssociations bool) (err error) {
 	if p != nil {
 		var models CompanyGormModels
 		if models, err = p.ToModels(); err != nil {
 			return
 		}
 		if err = db.Transaction(func(tx *gorm.DB) error {
-			return tx.Clauses(clause.Returning{}).Save(&models).Error
+			if len(selects) > 0 {
+				tx = tx.Select(selects)
+			}
+			if len(omits) > 0 {
+				tx = tx.Omit(omits...)
+			}
+			return tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations}).Save(&models).Error
 		}); err != nil {
 			return
 		}
@@ -656,17 +646,6 @@ type AddressGormModel struct {
 
 	// @gotags: fake:"skip"
 	UserId *string `json:"userId" fake:"skip"`
-}
-
-func (m *AddressGormModel) BeforeSave(tx *gorm.DB) (err error) {
-	timestamp := time.Now().UTC()
-	if m.CreatedAt == nil {
-		// createdAt not set, set it
-		m.CreatedAt = &timestamp
-	}
-	// always set updatedAt
-	m.UpdatedAt = &timestamp
-	return
 }
 
 func (m *AddressGormModel) TableName() string {
@@ -758,14 +737,20 @@ func (m AddressGormModels) GetByModelIds(ctx context.Context, db *gorm.DB) (err 
 	return
 }
 
-func (p *AddressProtos) Upsert(ctx context.Context, db *gorm.DB) (err error) {
+func (p *AddressProtos) Save(ctx context.Context, db *gorm.DB, selects, omits []string, fullSaveAssociations bool) (err error) {
 	if p != nil {
 		var models AddressGormModels
 		if models, err = p.ToModels(); err != nil {
 			return
 		}
 		if err = db.Transaction(func(tx *gorm.DB) error {
-			return tx.Clauses(clause.Returning{}).Save(&models).Error
+			if len(selects) > 0 {
+				tx = tx.Select(selects)
+			}
+			if len(omits) > 0 {
+				tx = tx.Omit(omits...)
+			}
+			return tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations}).Save(&models).Error
 		}); err != nil {
 			return
 		}
@@ -831,17 +816,6 @@ type CommentGormModel struct {
 
 	// @gotags: fake:"skip"
 	UserId *string `json:"userId" fake:"skip"`
-}
-
-func (m *CommentGormModel) BeforeSave(tx *gorm.DB) (err error) {
-	timestamp := time.Now().UTC()
-	if m.CreatedAt == nil {
-		// createdAt not set, set it
-		m.CreatedAt = &timestamp
-	}
-	// always set updatedAt
-	m.UpdatedAt = &timestamp
-	return
 }
 
 func (m *CommentGormModel) TableName() string {
@@ -933,14 +907,20 @@ func (m CommentGormModels) GetByModelIds(ctx context.Context, db *gorm.DB) (err 
 	return
 }
 
-func (p *CommentProtos) Upsert(ctx context.Context, db *gorm.DB) (err error) {
+func (p *CommentProtos) Save(ctx context.Context, db *gorm.DB, selects, omits []string, fullSaveAssociations bool) (err error) {
 	if p != nil {
 		var models CommentGormModels
 		if models, err = p.ToModels(); err != nil {
 			return
 		}
 		if err = db.Transaction(func(tx *gorm.DB) error {
-			return tx.Clauses(clause.Returning{}).Save(&models).Error
+			if len(selects) > 0 {
+				tx = tx.Select(selects)
+			}
+			if len(omits) > 0 {
+				tx = tx.Omit(omits...)
+			}
+			return tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations}).Save(&models).Error
 		}); err != nil {
 			return
 		}
@@ -1003,17 +983,6 @@ type ProfileGormModel struct {
 
 	// @gotags: fake:"{name}"
 	Name string `json:"name" fake:"{name}"`
-}
-
-func (m *ProfileGormModel) BeforeSave(tx *gorm.DB) (err error) {
-	timestamp := time.Now().UTC()
-	if m.CreatedAt == nil {
-		// createdAt not set, set it
-		m.CreatedAt = &timestamp
-	}
-	// always set updatedAt
-	m.UpdatedAt = &timestamp
-	return
 }
 
 func (m *ProfileGormModel) TableName() string {
@@ -1101,14 +1070,20 @@ func (m ProfileGormModels) GetByModelIds(ctx context.Context, db *gorm.DB) (err 
 	return
 }
 
-func (p *ProfileProtos) Upsert(ctx context.Context, db *gorm.DB) (err error) {
+func (p *ProfileProtos) Save(ctx context.Context, db *gorm.DB, selects, omits []string, fullSaveAssociations bool) (err error) {
 	if p != nil {
 		var models ProfileGormModels
 		if models, err = p.ToModels(); err != nil {
 			return
 		}
 		if err = db.Transaction(func(tx *gorm.DB) error {
-			return tx.Clauses(clause.Returning{}).Save(&models).Error
+			if len(selects) > 0 {
+				tx = tx.Select(selects)
+			}
+			if len(omits) > 0 {
+				tx = tx.Omit(omits...)
+			}
+			return tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations}).Save(&models).Error
 		}); err != nil {
 			return
 		}

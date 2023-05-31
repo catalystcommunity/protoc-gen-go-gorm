@@ -38,26 +38,39 @@ func (s *PluginSuite) TestPlugin() {
 	user, err := getPopulatedUser(s.T())
 	require.NoError(s.T(), err)
 	users := UserProtos{user}
-	err = users.Upsert(context.Background(), cockroachdbDb)
+	err = users.Save(context.Background(), cockroachdbDb, nil, nil, false)
+	require.NoError(s.T(), err)
+	upsertedUser := users[0]
+	require.NotNil(s.T(), upsertedUser.Company)
+	require.NotNil(s.T(), upsertedUser.CompanyTwo)
+	require.NotNil(s.T(), upsertedUser.CompanyThree)
+	require.NotNil(s.T(), upsertedUser.Address)
+	require.Greater(s.T(), len(upsertedUser.Comments), 0)
+	require.Greater(s.T(), len(upsertedUser.Profiles), 0)
 	expectedCreatedAt := users[0].CreatedAt
 	var firstUserModel *UserGormModel
 	var firstUser *User
-	err = cockroachdbDb.Joins("Company").Joins("Address").Preload(clause.Associations).First(&firstUserModel).Error
+	err = cockroachdbDb.Preload(clause.Associations).First(&firstUserModel).Error
 	require.NoError(s.T(), err)
 	firstUser, err = firstUserModel.ToProto()
 	require.NoError(s.T(), err)
 	assertProtosEquality(s.T(), users[0], firstUser)
 	// do an update to ensure updated at field is updated and created
-	time.Sleep(2 * time.Second)
-	firstUser.AnInt32 = gofakeit.Int32()
+	oldInt32 := firstUser.AnInt32
+	newInt32 := gofakeit.Int32()
+	require.NotEqual(s.T(), oldInt32, newInt32)
+	firstUser.AnInt32 = newInt32
 	update := proto.Clone(firstUser)
 	updates := UserProtos{update.(*User)}
-	err = updates.Upsert(context.Background(), cockroachdbDb)
+	updates[0].Company.Name = "derp"
+	err = updates.Save(context.Background(), cockroachdbDb, nil, nil, false)
 	require.NoError(s.T(), err)
 	require.Equal(s.T(), expectedCreatedAt, updates[0].CreatedAt)
 	createdAt, err := time.Parse(time.RFC3339Nano, updates[0].CreatedAt)
 	require.NoError(s.T(), err)
 	require.NotEqual(s.T(), createdAt.UnixMilli(), updates[0].UpdatedAt.AsTime().UnixMilli())
+	require.NotEqual(s.T(), updates[0].AnInt32, oldInt32)
+	require.Equal(s.T(), updates[0].AnInt32, newInt32)
 	// test list
 	listedUsers := UserProtos{}
 	err = listedUsers.List(context.Background(), cockroachdbDb, 100, 0, nil)
@@ -89,6 +102,7 @@ func (s *PluginSuite) TestSliceTransformers() {
 }
 
 func (s *PluginSuite) SetupSuite() {
+	s.T().Parallel()
 	preset := cockroachdb.Preset()
 	var err error
 	portOpt := gnomock.WithCustomNamedPorts(gnomock.NamedPorts{"default": gnomock.Port{
