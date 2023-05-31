@@ -251,22 +251,22 @@ func getGormFieldTag(field *ModelField) string {
 				tag = fmt.Sprintf("%sforeignKey:%s;", tag, options.GetBelongsTo().Foreignkey)
 			}
 		}
-	}
-	if options.OnUpdate != "" || options.OnDelete != "" {
-		var onUpdate, onDelete string
-		if options.OnUpdate != "" {
-			onUpdate = fmt.Sprintf("OnUpdate:%s", options.OnUpdate)
-		}
-		if options.OnDelete != "" {
-			onDelete = fmt.Sprintf("OnDelete:%s", options.OnDelete)
-		}
-		if onUpdate != "" && onDelete != "" {
-			tag += fmt.Sprintf("constraint:%s,%s;", onUpdate, onDelete)
-		} else {
-			if onUpdate != "" {
-				tag += fmt.Sprintf("constraint:%s;", onUpdate)
+		if options.OnUpdate != "" || options.OnDelete != "" {
+			var onUpdate, onDelete string
+			if options.OnUpdate != "" {
+				onUpdate = fmt.Sprintf("OnUpdate:%s", options.OnUpdate)
+			}
+			if options.OnDelete != "" {
+				onDelete = fmt.Sprintf("OnDelete:%s", options.OnDelete)
+			}
+			if onUpdate != "" && onDelete != "" {
+				tag += fmt.Sprintf("constraint:%s,%s;", onUpdate, onDelete)
 			} else {
-				tag += fmt.Sprintf("constraint:%s;", onDelete)
+				if onUpdate != "" {
+					tag += fmt.Sprintf("constraint:%s;", onUpdate)
+				} else {
+					tag += fmt.Sprintf("constraint:%s;", onDelete)
+				}
 			}
 		}
 	}
