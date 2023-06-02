@@ -93,6 +93,7 @@ func getModelFieldType(field *ModelField) string {
 		return getMessageGormModelFieldType(field.Field)
 	} else if field.Enum != nil {
 		if field.IsRepeated {
+			g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "github.com/lib/pq"})
 			if field.Options.EnumAsString {
 				return "pq.StringArray"
 			} else {
