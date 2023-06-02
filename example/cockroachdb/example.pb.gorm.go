@@ -442,17 +442,17 @@ func (p *UserProtos) Upsert(ctx context.Context, db *gorm.DB, selects, omits []s
 			if len(updates) > 0 {
 				for _, update := range updates {
 					if !omitMap["Address"] {
-						if err = tx.Model(&updates).Association("Address").Unscoped().Replace(update.Address); err != nil {
+						if err = tx.Model(&update).Association("Address").Unscoped().Replace(update.Address); err != nil {
 							return err
 						}
 					}
 					if !omitMap["Comments"] {
-						if err = tx.Model(&updates).Association("Comments").Unscoped().Replace(update.Comments); err != nil {
+						if err = tx.Model(&update).Association("Comments").Unscoped().Replace(update.Comments); err != nil {
 							return err
 						}
 					}
 					if !omitMap["Profiles"] {
-						if err = tx.Model(&updates).Association("Profiles").Unscoped().Replace(update.Profiles); err != nil {
+						if err = tx.Model(&update).Association("Profiles").Unscoped().Replace(update.Profiles); err != nil {
 							return err
 						}
 					}
