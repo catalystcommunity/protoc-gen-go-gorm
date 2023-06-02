@@ -251,19 +251,19 @@ func (p *{{.GoIdent.GoName}}Protos) Upsert(ctx context.Context, db *gorm.DB, sel
 				{{ range .Model.Fields -}}
 				{{ if .Options.GetManyToMany -}}
 				if !omitMap["{{ .GoName }}"] {
-					if err = tx.Model(&updates).Association("{{ .GoName }}").Unscoped().Replace(update.{{ .GoName }}); err != nil {
+					if err = tx.Model(&update).Association("{{ .GoName }}").Unscoped().Replace(update.{{ .GoName }}); err != nil {
 						return err
 					}
 				}
 				{{ else if .Options.GetHasMany -}}
 				if !omitMap["{{ .GoName }}"] {
-					if err = tx.Model(&updates).Association("{{ .GoName }}").Unscoped().Replace(update.{{ .GoName }}); err != nil {
+					if err = tx.Model(&update).Association("{{ .GoName }}").Unscoped().Replace(update.{{ .GoName }}); err != nil {
 						return err
 					}
 				}
 				{{ else if .Options.GetHasOne -}}
 				if !omitMap["{{ .GoName }}"] {
-					if err = tx.Model(&updates).Association("{{ .GoName }}").Unscoped().Replace(update.{{ .GoName }}); err != nil {
+					if err = tx.Model(&update).Association("{{ .GoName }}").Unscoped().Replace(update.{{ .GoName }}); err != nil {
 						return err
 					}
 				}
@@ -271,7 +271,6 @@ func (p *{{.GoIdent.GoName}}Protos) Upsert(ctx context.Context, db *gorm.DB, sel
 				{{ end -}}
 				}
 				{{ end -}}
-				
 				return tx.Save(&updates).Error
 			}
 			return nil
