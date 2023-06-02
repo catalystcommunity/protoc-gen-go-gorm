@@ -243,13 +243,10 @@ func getGormFieldTag(field *ModelField) string {
 	if options != nil {
 		tag += getForeignKeyTag(field)
 		tag += getReferencesTag(field)
-		if options.GetHasMany() != nil {
-			g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "github.com/google/uuid"})
-		} else if options.GetManyToMany() != nil {
+		if options.GetManyToMany() != nil {
 			tag += getM2MTag(field)
 			tag += getJoinForeignKeyTag(field)
 			tag += getJoinReferencesTag(field)
-			g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "github.com/google/uuid"})
 		}
 		if options.OnUpdate != "" || options.OnDelete != "" {
 			var onUpdate, onDelete string
