@@ -114,5 +114,5 @@ func ignoreField(field *ModelField) bool {
 }
 
 func hasReplaceRelationships(field *ModelField) bool {
-	return field.Options != nil && (field.Options.GetHasOne() != nil || field.Options.GetHasMany() != nil && field.Options.GetManyToMany() != nil)
+	return field.Options != nil && (field.Options.GetHasOne() != nil || field.Options.GetHasMany() != nil || field.Options.GetManyToMany() != nil)
 }
