@@ -241,15 +241,15 @@ func getGormFieldTag(field *ModelField) string {
 	}
 	options := getFieldOptions(field.Field)
 	if options != nil {
-		if options.GetHasOne() != nil || options.GetHasMany() != nil {
-			tag += "foreignKey:Id;"
+		tag += getForeignKeyTag(field)
+		tag += getReferencesTag(field)
+		if options.GetHasMany() != nil {
+			g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "github.com/google/uuid"})
 		} else if options.GetManyToMany() != nil {
-			m2mTableName := fmt.Sprintf("%s_%s", getTableNameFromMessage(field.Parent), getTableNameFromMessage(field.Message))
-			tag += fmt.Sprintf("many2many:%s;foreignKey:Id;references:Id;joinForeignKey:%sId;joinReferences:%sId;", m2mTableName, field.Parent.GoIdent.GoName, field.Message.GoIdent.GoName)
-		} else if options.GetBelongsTo() != nil {
-			if options.GetBelongsTo().Foreignkey != "" {
-				tag = fmt.Sprintf("%sforeignKey:%s;", tag, options.GetBelongsTo().Foreignkey)
-			}
+			tag += getM2MTag(field)
+			tag += getJoinForeignKeyTag(field)
+			tag += getJoinReferencesTag(field)
+			g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "github.com/google/uuid"})
 		}
 		if options.OnUpdate != "" || options.OnDelete != "" {
 			var onUpdate, onDelete string
@@ -591,4 +591,95 @@ func tableName(message *protogen.Message) string {
 
 func emptyTag() string {
 	return "``"
+}
+
+func getForeignKeyTag(field *ModelField) string {
+	fkTemplate := "foreignKey:%s;"
+	fkIdTemplate := "%sId"
+	hasOne := field.Options.GetHasOne()
+	hasMany := field.Options.GetHasMany()
+	belongsTo := field.Options.GetBelongsTo()
+	manyToMany := field.Options.GetManyToMany()
+	if hasOne != nil {
+		if hasOne.Foreignkey != "" {
+			return fmt.Sprintf(fkTemplate, hasOne.Foreignkey)
+		} else {
+			return fmt.Sprintf(fkTemplate, fmt.Sprintf(fkIdTemplate, field.Parent.GoIdent.GoName))
+		}
+	} else if hasMany != nil {
+		if hasMany.Foreignkey != "" {
+			return fmt.Sprintf(fkTemplate, hasMany.Foreignkey)
+		} else {
+			return fmt.Sprintf(fkTemplate, fmt.Sprintf(fkIdTemplate, field.Parent.GoIdent.GoName))
+		}
+	} else if belongsTo != nil {
+		if belongsTo.Foreignkey != "" {
+			return fmt.Sprintf(fkTemplate, belongsTo.Foreignkey)
+		} else {
+			return fmt.Sprintf(fkTemplate, fmt.Sprintf(fkIdTemplate, field.GoName))
+		}
+	} else if manyToMany != nil {
+		if manyToMany.Foreignkey != "" {
+			return fmt.Sprintf(fkTemplate, manyToMany.Foreignkey)
+		} else {
+			return fmt.Sprintf(fkTemplate, "Id")
+		}
+	}
+	return ""
+}
+
+func getReferencesTag(field *ModelField) string {
+	referencesTemplate := "references:%s;"
+	idReferenceTemplate := "%sId"
+	hasOne := field.Options.GetHasOne()
+	hasMany := field.Options.GetHasMany()
+	belongsTo := field.Options.GetBelongsTo()
+	manyToMany := field.Options.GetManyToMany()
+	if hasOne != nil {
+		if hasOne.AssociationForeignkey != "" {
+			return fmt.Sprintf(referencesTemplate, hasOne.AssociationForeignkey)
+		}
+		return fmt.Sprintf(referencesTemplate, fmt.Sprintf(idReferenceTemplate, ""))
+	} else if hasMany != nil {
+		if hasMany.AssociationForeignkey != "" {
+			return fmt.Sprintf(referencesTemplate, hasMany.AssociationForeignkey)
+		}
+		return fmt.Sprintf(referencesTemplate, fmt.Sprintf(idReferenceTemplate, ""))
+	} else if belongsTo != nil {
+		if belongsTo.AssociationForeignkey != "" {
+			return fmt.Sprintf(referencesTemplate, belongsTo.AssociationForeignkey)
+		} else {
+			return fmt.Sprintf(referencesTemplate, "Id")
+		}
+	} else if manyToMany != nil {
+		if manyToMany.AssociationForeignkey != "" {
+			return fmt.Sprintf(referencesTemplate, manyToMany.AssociationForeignkey)
+		}
+		return fmt.Sprintf(referencesTemplate, fmt.Sprintf(idReferenceTemplate, ""))
+	}
+	return ""
+}
+
+func getM2MTag(field *ModelField) string {
+	table := field.Options.GetManyToMany().Jointable
+	if table == "" {
+		table = fmt.Sprintf("%s_%s", getTableNameFromMessage(field.Parent), getTableNameFromMessage(field.Message))
+	}
+	return fmt.Sprintf("many2many:%s;", table)
+}
+
+func getJoinForeignKeyTag(field *ModelField) string {
+	foreignKey := field.Options.GetManyToMany().JointableForeignkey
+	if foreignKey == "" {
+		foreignKey = fmt.Sprintf("%sId", field.Parent.GoIdent.GoName)
+	}
+	return fmt.Sprintf("joinForeignKey:%s;", foreignKey)
+}
+
+func getJoinReferencesTag(field *ModelField) string {
+	foreignKey := field.Options.GetManyToMany().JointableForeignkey
+	if foreignKey == "" {
+		foreignKey = fmt.Sprintf("%sId", field.Message.GoIdent.GoName)
+	}
+	return fmt.Sprintf("joinReferences:%s;", foreignKey)
 }

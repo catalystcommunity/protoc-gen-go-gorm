@@ -7,6 +7,7 @@ import (
 	context "context"
 	json "encoding/json"
 	crdbgorm "github.com/cockroachdb/cockroach-go/v2/crdb/crdbgorm"
+	uuid "github.com/google/uuid"
 	pgtype "github.com/jackc/pgtype"
 	pq "github.com/lib/pq"
 	lo "github.com/samber/lo"
@@ -80,28 +81,28 @@ type UserGormModel struct {
 	CompanyId *string ``
 
 	// @gotags: fake:"skip"
-	Company *CompanyGormModel `gorm:"foreignKey:CompanyId;constraint:OnDelete:CASCADE;" json:"company" fake:"skip"`
+	Company *CompanyGormModel `gorm:"foreignKey:CompanyId;references:Id;constraint:OnDelete:CASCADE;" json:"company" fake:"skip"`
 
 	// @gotags: fake:"skip"
 	CompanyTwoId string `json:"companyTwoId" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	CompanyTwo *CompanyGormModel `gorm:"foreignKey:CompanyTwoId;constraint:OnDelete:CASCADE;" json:"companyTwo" fake:"skip"`
+	CompanyTwo *CompanyGormModel `gorm:"foreignKey:CompanyTwoId;references:Id;constraint:OnDelete:CASCADE;" json:"companyTwo" fake:"skip"`
 
 	// @gotags: fake:"skip"
 	AnUnexpectedId string `json:"anUnexpectedId" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	CompanyThree *CompanyGormModel `gorm:"foreignKey:AnUnexpectedId;constraint:OnDelete:CASCADE;" json:"companyThree" fake:"skip"`
+	CompanyThree *CompanyGormModel `gorm:"foreignKey:AnUnexpectedId;references:Id;constraint:OnDelete:CASCADE;" json:"companyThree" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	Address *AddressGormModel `gorm:"foreignKey:Id;constraint:OnDelete:CASCADE;" json:"address" fake:"skip"`
+	Address *AddressGormModel `gorm:"foreignKey:UserId;references:Id;constraint:OnDelete:CASCADE;" json:"address" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	Comments []*CommentGormModel `gorm:"foreignKey:Id;constraint:OnDelete:CASCADE;" json:"comments" fake:"skip"`
+	Comments []*CommentGormModel `gorm:"foreignKey:UserId;references:Id;constraint:OnDelete:CASCADE;" json:"comments" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	Profiles []*ProfileGormModel `gorm:"many2many:users_profiles;foreignKey:Id;references:Id;joinForeignKey:UserId;joinReferences:ProfileId;constraint:OnDelete:CASCADE;" json:"profiles" fake:"skip"`
+	Profiles []*ProfileGormModel `gorm:"foreignKey:Id;references:Id;many2many:users_profiles;joinForeignKey:UserId;joinReferences:ProfileId;constraint:OnDelete:CASCADE;" json:"profiles" fake:"skip"`
 
 	// @gotags: fake:"{number:1,9}"
 	IntEnum int `json:"intEnum" fake:"{number:1,9}"`
@@ -405,23 +406,65 @@ func (m UserGormModels) GetByModelIds(ctx context.Context, db *gorm.DB) (err err
 	return
 }
 
-func (p *UserProtos) Save(ctx context.Context, db *gorm.DB, selects, omits []string, fullSaveAssociations bool) (err error) {
+func (p *UserProtos) Upsert(ctx context.Context, db *gorm.DB, selects, omits []string, fullSaveAssociations bool) (err error) {
 	if p != nil {
-		var models UserGormModels
-		if models, err = p.ToModels(); err != nil {
-			return
+		omitMap := map[string]bool{}
+		for _, omit := range omits {
+			omitMap[omit] = true
+		}
+		creates, updates := []*UserGormModel{}, []*UserGormModel{}
+		nilUid := uuid.Nil.String()
+		var model *UserGormModel
+		for _, proto := range *p {
+			if model, err = proto.ToModel(); err != nil {
+				return
+			} else {
+				if model.Id != nil && *model.Id != "" && *model.Id != nilUid {
+					updates = append(updates, model)
+				} else {
+					creates = append(creates, model)
+				}
+			}
 		}
 		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
+			tx = tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations})
 			if len(selects) > 0 {
 				tx = tx.Select(selects)
 			}
 			if len(omits) > 0 {
 				tx = tx.Omit(omits...)
 			}
-			return tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations}).Save(&models).Error
+			if len(creates) > 0 {
+				if err = tx.Create(&creates).Error; err != nil {
+					return err
+				}
+			}
+			if len(updates) > 0 {
+				for _, update := range updates {
+					if !omitMap["Address"] {
+						if err = tx.Model(&updates).Association("Address").Unscoped().Replace(update.Address); err != nil {
+							return err
+						}
+					}
+					if !omitMap["Comments"] {
+						if err = tx.Model(&updates).Association("Comments").Unscoped().Replace(update.Comments); err != nil {
+							return err
+						}
+					}
+					if !omitMap["Profiles"] {
+						if err = tx.Model(&updates).Association("Profiles").Unscoped().Replace(update.Profiles); err != nil {
+							return err
+						}
+					}
+				}
+				return tx.Save(&updates).Error
+			}
+			return nil
 		}); err != nil {
 			return
 		}
+		models := UserGormModels{}
+		models = append(creates, updates...)
 		if err = models.GetByModelIds(ctx, db); err != nil {
 			return
 		}
@@ -568,23 +611,48 @@ func (m CompanyGormModels) GetByModelIds(ctx context.Context, db *gorm.DB) (err 
 	return
 }
 
-func (p *CompanyProtos) Save(ctx context.Context, db *gorm.DB, selects, omits []string, fullSaveAssociations bool) (err error) {
+func (p *CompanyProtos) Upsert(ctx context.Context, db *gorm.DB, selects, omits []string, fullSaveAssociations bool) (err error) {
 	if p != nil {
-		var models CompanyGormModels
-		if models, err = p.ToModels(); err != nil {
-			return
+		omitMap := map[string]bool{}
+		for _, omit := range omits {
+			omitMap[omit] = true
+		}
+		creates, updates := []*CompanyGormModel{}, []*CompanyGormModel{}
+		nilUid := uuid.Nil.String()
+		var model *CompanyGormModel
+		for _, proto := range *p {
+			if model, err = proto.ToModel(); err != nil {
+				return
+			} else {
+				if model.Id != nil && *model.Id != "" && *model.Id != nilUid {
+					updates = append(updates, model)
+				} else {
+					creates = append(creates, model)
+				}
+			}
 		}
 		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
+			tx = tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations})
 			if len(selects) > 0 {
 				tx = tx.Select(selects)
 			}
 			if len(omits) > 0 {
 				tx = tx.Omit(omits...)
 			}
-			return tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations}).Save(&models).Error
+			if len(creates) > 0 {
+				if err = tx.Create(&creates).Error; err != nil {
+					return err
+				}
+			}
+			if len(updates) > 0 {
+				return tx.Save(&updates).Error
+			}
+			return nil
 		}); err != nil {
 			return
 		}
+		models := CompanyGormModels{}
+		models = append(creates, updates...)
 		if err = models.GetByModelIds(ctx, db); err != nil {
 			return
 		}
@@ -649,7 +717,7 @@ type AddressGormModel struct {
 	UserId *string `json:"userId" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	User *UserGormModel `gorm:"foreignKey:UserId;constraint:OnDelete:CASCADE;" json:"user" fake:"skip"`
+	User *UserGormModel `gorm:"foreignKey:UserId;references:Id;constraint:OnDelete:CASCADE;" json:"user" fake:"skip"`
 }
 
 func (m *AddressGormModel) TableName() string {
@@ -749,23 +817,48 @@ func (m AddressGormModels) GetByModelIds(ctx context.Context, db *gorm.DB) (err 
 	return
 }
 
-func (p *AddressProtos) Save(ctx context.Context, db *gorm.DB, selects, omits []string, fullSaveAssociations bool) (err error) {
+func (p *AddressProtos) Upsert(ctx context.Context, db *gorm.DB, selects, omits []string, fullSaveAssociations bool) (err error) {
 	if p != nil {
-		var models AddressGormModels
-		if models, err = p.ToModels(); err != nil {
-			return
+		omitMap := map[string]bool{}
+		for _, omit := range omits {
+			omitMap[omit] = true
+		}
+		creates, updates := []*AddressGormModel{}, []*AddressGormModel{}
+		nilUid := uuid.Nil.String()
+		var model *AddressGormModel
+		for _, proto := range *p {
+			if model, err = proto.ToModel(); err != nil {
+				return
+			} else {
+				if model.Id != nil && *model.Id != "" && *model.Id != nilUid {
+					updates = append(updates, model)
+				} else {
+					creates = append(creates, model)
+				}
+			}
 		}
 		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
+			tx = tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations})
 			if len(selects) > 0 {
 				tx = tx.Select(selects)
 			}
 			if len(omits) > 0 {
 				tx = tx.Omit(omits...)
 			}
-			return tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations}).Save(&models).Error
+			if len(creates) > 0 {
+				if err = tx.Create(&creates).Error; err != nil {
+					return err
+				}
+			}
+			if len(updates) > 0 {
+				return tx.Save(&updates).Error
+			}
+			return nil
 		}); err != nil {
 			return
 		}
+		models := AddressGormModels{}
+		models = append(creates, updates...)
 		if err = models.GetByModelIds(ctx, db); err != nil {
 			return
 		}
@@ -919,23 +1012,48 @@ func (m CommentGormModels) GetByModelIds(ctx context.Context, db *gorm.DB) (err 
 	return
 }
 
-func (p *CommentProtos) Save(ctx context.Context, db *gorm.DB, selects, omits []string, fullSaveAssociations bool) (err error) {
+func (p *CommentProtos) Upsert(ctx context.Context, db *gorm.DB, selects, omits []string, fullSaveAssociations bool) (err error) {
 	if p != nil {
-		var models CommentGormModels
-		if models, err = p.ToModels(); err != nil {
-			return
+		omitMap := map[string]bool{}
+		for _, omit := range omits {
+			omitMap[omit] = true
+		}
+		creates, updates := []*CommentGormModel{}, []*CommentGormModel{}
+		nilUid := uuid.Nil.String()
+		var model *CommentGormModel
+		for _, proto := range *p {
+			if model, err = proto.ToModel(); err != nil {
+				return
+			} else {
+				if model.Id != nil && *model.Id != "" && *model.Id != nilUid {
+					updates = append(updates, model)
+				} else {
+					creates = append(creates, model)
+				}
+			}
 		}
 		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
+			tx = tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations})
 			if len(selects) > 0 {
 				tx = tx.Select(selects)
 			}
 			if len(omits) > 0 {
 				tx = tx.Omit(omits...)
 			}
-			return tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations}).Save(&models).Error
+			if len(creates) > 0 {
+				if err = tx.Create(&creates).Error; err != nil {
+					return err
+				}
+			}
+			if len(updates) > 0 {
+				return tx.Save(&updates).Error
+			}
+			return nil
 		}); err != nil {
 			return
 		}
+		models := CommentGormModels{}
+		models = append(creates, updates...)
 		if err = models.GetByModelIds(ctx, db); err != nil {
 			return
 		}
@@ -1082,23 +1200,48 @@ func (m ProfileGormModels) GetByModelIds(ctx context.Context, db *gorm.DB) (err 
 	return
 }
 
-func (p *ProfileProtos) Save(ctx context.Context, db *gorm.DB, selects, omits []string, fullSaveAssociations bool) (err error) {
+func (p *ProfileProtos) Upsert(ctx context.Context, db *gorm.DB, selects, omits []string, fullSaveAssociations bool) (err error) {
 	if p != nil {
-		var models ProfileGormModels
-		if models, err = p.ToModels(); err != nil {
-			return
+		omitMap := map[string]bool{}
+		for _, omit := range omits {
+			omitMap[omit] = true
+		}
+		creates, updates := []*ProfileGormModel{}, []*ProfileGormModel{}
+		nilUid := uuid.Nil.String()
+		var model *ProfileGormModel
+		for _, proto := range *p {
+			if model, err = proto.ToModel(); err != nil {
+				return
+			} else {
+				if model.Id != nil && *model.Id != "" && *model.Id != nilUid {
+					updates = append(updates, model)
+				} else {
+					creates = append(creates, model)
+				}
+			}
 		}
 		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
+			tx = tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations})
 			if len(selects) > 0 {
 				tx = tx.Select(selects)
 			}
 			if len(omits) > 0 {
 				tx = tx.Omit(omits...)
 			}
-			return tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations}).Save(&models).Error
+			if len(creates) > 0 {
+				if err = tx.Create(&creates).Error; err != nil {
+					return err
+				}
+			}
+			if len(updates) > 0 {
+				return tx.Save(&updates).Error
+			}
+			return nil
 		}); err != nil {
 			return
 		}
+		models := ProfileGormModels{}
+		models = append(creates, updates...)
 		if err = models.GetByModelIds(ctx, db); err != nil {
 			return
 		}

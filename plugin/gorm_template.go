@@ -208,27 +208,78 @@ func (m {{ .Model.Name }}s) GetByModelIds(ctx context.Context, db *gorm.DB) (err
 	return
 }
 
-func (p *{{.GoIdent.GoName}}Protos) Save(ctx context.Context, db *gorm.DB, selects, omits []string, fullSaveAssociations bool) (err error) {
+func (p *{{.GoIdent.GoName}}Protos) Upsert(ctx context.Context, db *gorm.DB, selects, omits []string, fullSaveAssociations bool) (err error) {
 	if p != nil {
-		var models {{ .Model.Name }}s
-		if models, err = p.ToModels(); err != nil {
-			return
+		omitMap := map[string]bool{}
+		for _, omit := range omits {
+			omitMap[omit] = true
+		}
+		creates, updates := []*{{ .Model.Name }}{}, []*{{ .Model.Name }}{}
+		nilUid := uuid.Nil.String()
+		var model *{{ .Model.Name }}
+		for _, proto := range *p {
+			if model, err = proto.ToModel(); err != nil {
+				return
+			} else {
+				if model.Id != nil && *model.Id != "" && *model.Id != nilUid {
+					updates = append(updates, model)
+				} else {
+					creates = append(creates, model)
+				}
+			}
 		}
 		{{ if eq .Engine "cockroachdb" -}}
 		if err = crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
 		{{ else -}}
 		if err = db.Transaction(func(tx *gorm.DB) error {
 		{{ end -}}
+			tx = tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations})
 			if len(selects) > 0 {
 				tx = tx.Select(selects)
 			}
 			if len(omits) > 0 {
 				tx = tx.Omit(omits...)
 			}
-			return tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations}).Save(&models).Error
+			if len(creates) > 0 {
+				if err = tx.Create(&creates).Error; err != nil {
+					return err
+				}
+			}
+			if len(updates) > 0 {
+				{{ if .HasReplaceRelationships -}}
+				for _, update := range updates {
+				{{ range .Model.Fields -}}
+				{{ if .Options.GetManyToMany -}}
+				if !omitMap["{{ .GoName }}"] {
+					if err = tx.Model(&updates).Association("{{ .GoName }}").Unscoped().Replace(update.{{ .GoName }}); err != nil {
+						return err
+					}
+				}
+				{{ else if .Options.GetHasMany -}}
+				if !omitMap["{{ .GoName }}"] {
+					if err = tx.Model(&updates).Association("{{ .GoName }}").Unscoped().Replace(update.{{ .GoName }}); err != nil {
+						return err
+					}
+				}
+				{{ else if .Options.GetHasOne -}}
+				if !omitMap["{{ .GoName }}"] {
+					if err = tx.Model(&updates).Association("{{ .GoName }}").Unscoped().Replace(update.{{ .GoName }}); err != nil {
+						return err
+					}
+				}
+				{{ end -}}
+				{{ end -}}
+				}
+				{{ end -}}
+				
+				return tx.Save(&updates).Error
+			}
+			return nil
 		}); err != nil {
 			return
 		}
+		models := {{ .Model.Name }}s{}
+		models = append(creates, updates...)
 		if err = models.GetByModelIds(ctx, db); err != nil {
 			return
 		}
