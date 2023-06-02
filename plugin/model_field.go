@@ -20,6 +20,7 @@ type ModelField struct {
 	Ignore                         bool
 	Name                           string
 	ShouldGenerateBelongsToIdField bool
+	HasReplaceRelationships        bool // any relationships except belongs to needs replace calls
 }
 
 func (f *ModelField) Parse() (err error) {
@@ -41,6 +42,7 @@ func (f *ModelField) Parse() (err error) {
 	f.ModelSingularType = getModelFieldSingularType(f)
 	f.Tag = getFieldTags(f)
 	f.ShouldGenerateBelongsToIdField = shouldGenerateBelongsToIdField(f)
+	f.HasReplaceRelationships = hasReplaceRelationships(f)
 	return
 }
 
@@ -108,4 +110,8 @@ func getModelFieldType(field *ModelField) string {
 
 func ignoreField(field *ModelField) bool {
 	return field.Options != nil && field.Options.Ignore
+}
+
+func hasReplaceRelationships(field *ModelField) bool {
+	return field.Options != nil && (field.Options.GetHasOne() != nil || field.Options.GetHasMany() != nil && field.Options.GetManyToMany() != nil)
 }

@@ -6,9 +6,10 @@ import (
 
 type Model struct {
 	*protogen.Message
-	Name      string
-	TableName string
-	Fields    []*ModelField
+	Name                    string
+	TableName               string
+	Fields                  []*ModelField
+	HasReplaceRelationships bool
 }
 
 func (m *Model) Parse() (err error) {
@@ -22,6 +23,9 @@ func (m *Model) Parse() (err error) {
 		}
 		if modelField.Ignore {
 			continue
+		}
+		if modelField.HasReplaceRelationships {
+			m.HasReplaceRelationships = true
 		}
 		m.Fields = append(m.Fields, modelField)
 	}

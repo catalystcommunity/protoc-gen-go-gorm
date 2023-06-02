@@ -7,9 +7,9 @@ import (
 	"github.com/brianvoe/gofakeit/v6"
 	. "github.com/catalystsquad/protoc-gen-go-gorm/example/postgres"
 	"github.com/google/go-cmp/cmp"
-	_ "github.com/lib/pq" // postgres driver
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/orlangure/gnomock"
-	preset "github.com/orlangure/gnomock/preset/postgres"
+	postgres_preset "github.com/orlangure/gnomock/preset/postgres"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/protobuf/proto"
@@ -21,7 +21,6 @@ import (
 	"log"
 	"os"
 	"testing"
-	"time"
 )
 
 var postgresContainer *gnomock.Container
@@ -36,53 +35,68 @@ func TestPostgresPluginSuite(t *testing.T) {
 }
 
 func (s *PostgresPluginSuite) TestPlugin() {
-	user, err := getPostgresPopulatedUser(s.T())
-	require.NoError(s.T(), err)
+	user := getPostgresPopulatedUser(s.T())
+	expectedUser := proto.Clone(user)
 	users := UserProtos{user}
-	err = users.Save(context.Background(), postgresDb, nil, nil, false)
+	err := users.Upsert(context.Background(), postgresDb, nil, nil, false)
 	require.NoError(s.T(), err)
 	upsertedUser := users[0]
-	require.NotNil(s.T(), upsertedUser.Company)
-	require.NotNil(s.T(), upsertedUser.CompanyTwo)
-	require.NotNil(s.T(), upsertedUser.CompanyThree)
-	require.NotNil(s.T(), upsertedUser.Address)
-	require.Greater(s.T(), len(upsertedUser.Comments), 0)
-	require.Greater(s.T(), len(upsertedUser.Profiles), 0)
-	expectedCreatedAt := users[0].CreatedAt
+	// assert all objects have the appropriate ids
+	require.Equal(s.T(), upsertedUser.Id, upsertedUser.Address.UserId)
+	require.Equal(s.T(), upsertedUser.CompanyTwoId, *upsertedUser.CompanyTwo.Id)
+	require.Equal(s.T(), upsertedUser.AnUnexpectedId, *upsertedUser.CompanyThree.Id)
+	for _, comment := range upsertedUser.Comments {
+		require.Equal(s.T(), upsertedUser.Id, comment.UserId)
+	}
+	// assert equality ignoring generated ids and timestamps
+	assertPostgresProtosEquality(s.T(), expectedUser, upsertedUser,
+		protocmp.IgnoreFields(&Address{}, "id", "created_at", "updated_at", "user_id"),
+		protocmp.IgnoreFields(&Company{}, "id", "created_at", "updated_at"),
+		protocmp.IgnoreFields(&Comment{}, "id", "created_at", "updated_at", "user_id"),
+		protocmp.IgnoreFields(&Profile{}, "id", "created_at", "updated_at"),
+		protocmp.IgnoreFields(&User{}, "id", "created_at", "updated_at", "an_unexpected_id", "company_two_id"),
+	)
 	var firstUserModel *UserGormModel
 	var firstUser *User
 	err = postgresDb.Preload(clause.Associations).First(&firstUserModel).Error
 	require.NoError(s.T(), err)
 	firstUser, err = firstUserModel.ToProto()
 	require.NoError(s.T(), err)
-	assertProtosEquality(s.T(), users[0], firstUser)
-	// do an update to ensure updated at field is updated and created
-	oldInt32 := firstUser.AnInt32
-	newInt32 := gofakeit.Int32()
-	require.NotEqual(s.T(), oldInt32, newInt32)
-	firstUser.AnInt32 = newInt32
-	update := proto.Clone(firstUser)
-	updates := UserProtos{update.(*User)}
-	updates[0].Company.Name = "derp"
-	err = updates.Save(context.Background(), postgresDb, nil, nil, false)
+	assertPostgresProtosEquality(s.T(), users[0], firstUser)
+	// test update
+	expectedUpdatedUser := getPostgresPopulatedUser(s.T())
+	expectedUpdatedUser.Id = users[0].Id
+	toUpdate := proto.Clone(expectedUpdatedUser)
+	updatedUsers := UserProtos{toUpdate.(*User)}
+	err = updatedUsers.Upsert(context.Background(), postgresDb, nil, nil, false)
 	require.NoError(s.T(), err)
-	require.Equal(s.T(), expectedCreatedAt, updates[0].CreatedAt)
-	createdAt, err := time.Parse(time.RFC3339Nano, updates[0].CreatedAt)
-	require.NoError(s.T(), err)
-	require.NotEqual(s.T(), createdAt.UnixMilli(), updates[0].UpdatedAt.AsTime().UnixMilli())
-	require.NotEqual(s.T(), updates[0].AnInt32, oldInt32)
-	require.Equal(s.T(), updates[0].AnInt32, newInt32)
+	updatedUser := updatedUsers[0]
+	// assert all objects have the appropriate ids
+	require.Equal(s.T(), updatedUser.Id, updatedUser.Address.UserId)
+	require.Equal(s.T(), updatedUser.CompanyTwoId, *updatedUser.CompanyTwo.Id)
+	require.Equal(s.T(), updatedUser.AnUnexpectedId, *updatedUser.CompanyThree.Id)
+	for _, comment := range updatedUser.Comments {
+		require.Equal(s.T(), updatedUser.Id, comment.UserId)
+	}
+	// assert equality ignoring generated ids and timestamps
+	assertPostgresProtosEquality(s.T(), expectedUpdatedUser, updatedUsers[0],
+		protocmp.IgnoreFields(&Address{}, "id", "created_at", "updated_at", "user_id"),
+		protocmp.IgnoreFields(&Company{}, "id", "created_at", "updated_at"),
+		protocmp.IgnoreFields(&Comment{}, "id", "created_at", "updated_at", "user_id"),
+		protocmp.IgnoreFields(&Profile{}, "id", "created_at", "updated_at"),
+		protocmp.IgnoreFields(&User{}, "id", "created_at", "updated_at", "an_unexpected_id", "company_two_id"),
+	)
 	// test list
 	listedUsers := UserProtos{}
 	err = listedUsers.List(context.Background(), postgresDb, 100, 0, nil)
 	require.NoError(s.T(), err)
-	assertProtosEquality(s.T(), updates, listedUsers)
+	assertPostgresProtosEquality(s.T(), updatedUsers, listedUsers)
 	// test get by ids
 	ids := []string{*listedUsers[0].Id}
 	fetchedUsers := UserProtos{}
 	err = fetchedUsers.GetByIds(context.Background(), postgresDb, ids)
 	require.NoError(s.T(), err)
-	assertProtosEquality(s.T(), listedUsers, fetchedUsers)
+	assertPostgresProtosEquality(s.T(), listedUsers, fetchedUsers)
 	// test delete
 	err = DeleteUserGormModels(context.Background(), postgresDb, ids)
 	require.NoError(s.T(), err)
@@ -92,23 +106,21 @@ func (s *PostgresPluginSuite) TestPlugin() {
 }
 
 func (s *PostgresPluginSuite) TestSliceTransformers() {
-	user, err := getPostgresPopulatedUser(s.T())
-	require.NoError(s.T(), err)
+	user := getPostgresPopulatedUser(s.T())
 	users := UserProtos{user}
 	models, err := users.ToModels()
 	require.NoError(s.T(), err)
 	transformedThings, err := models.ToProtos()
 	require.NoError(s.T(), err)
-	assertProtosEquality(s.T(), users, transformedThings)
+	assertPostgresProtosEquality(s.T(), users, transformedThings)
 }
 
 func (s *PostgresPluginSuite) SetupSuite() {
 	s.T().Parallel()
-	preset := preset.Preset(
-		preset.WithUser("test", "test"),
-		preset.WithDatabase("test"),
-		preset.WithQueriesFile("postgres_queries.sql"),
-	)
+	preset := postgres_preset.Preset(
+		postgres_preset.WithUser("test", "test"),
+		postgres_preset.WithDatabase("test"),
+		postgres_preset.WithQueriesFile("postgres_queries.sql"))
 	var err error
 	portOpt := gnomock.WithCustomNamedPorts(gnomock.NamedPorts{"default": gnomock.Port{
 		Protocol: "tcp",
@@ -139,61 +151,107 @@ func (s *PostgresPluginSuite) TearDownSuite() {
 func (s *PostgresPluginSuite) SetupTest() {
 }
 
-func assertPostgresProtosEquality(t *testing.T, expected, actual interface{}, ignoreFields ...string) {
+func assertPostgresProtosEquality(t *testing.T, expected, actual interface{}, opts ...cmp.Option) {
 	// ignoring id, created_at, updated_at, user_id because the original proto doesn't have those, but the
 	// one converted from the created model does
+	defaultOpts := []cmp.Option{
+		cmpopts.SortSlices(func(x, y *Comment) bool {
+			return x.Name < y.Name
+		}),
+		cmpopts.SortSlices(func(x, y *Profile) bool {
+			return x.Name < y.Name
+		}),
+		protocmp.Transform(),
+		protocmp.SortRepeated(func(x, y *Comment) bool {
+			return x.Name < y.Name
+		}),
+		protocmp.SortRepeated(func(x, y *Profile) bool {
+			return x.Name < y.Name
+		}),
+	}
+	defaultOpts = append(defaultOpts, opts...)
+	diff := cmp.Diff(
+		expected,
+		actual,
+		defaultOpts...,
+	)
 	require.Empty(t,
-		cmp.Diff(
-			expected,
-			actual,
-			protocmp.Transform(),
-			protocmp.SortRepeated(func(x, y *Comment) bool {
-				return x.Name < y.Name
-			}),
-			protocmp.SortRepeated(func(x, y *Profile) bool {
-				return x.Name < y.Name
-			}),
-		),
+		diff,
+		diff,
 	)
 }
 
-func getPostgresPopulatedUser(t *testing.T) (thing *User, err error) {
+func getPostgresPopulatedUser(t *testing.T) (thing *User) {
 	thing = &User{}
-	company, company2, company3 := &Company{}, &Company{}, &Company{}
-	address := &Address{}
-	comment1, comment2, comment3 := &Comment{}, &Comment{}, &Comment{}
-	profile1, profile2, profile3 := &Profile{}, &Profile{}, &Profile{}
-	err = gofakeit.Struct(&thing)
+	companies := getPostgresCompanys(t, 3)
+	err := gofakeit.Struct(&thing)
 	require.NoError(t, err)
-	err = gofakeit.Struct(&company)
-	require.NoError(t, err)
-	err = gofakeit.Struct(&company2)
-	require.NoError(t, err)
-	err = gofakeit.Struct(&company3)
-	require.NoError(t, err)
-	err = gofakeit.Struct(&address)
-	require.NoError(t, err)
-	err = gofakeit.Struct(&comment1)
-	require.NoError(t, err)
-	err = gofakeit.Struct(&comment2)
-	require.NoError(t, err)
-	err = gofakeit.Struct(&comment3)
-	require.NoError(t, err)
-	err = gofakeit.Struct(&profile1)
-	require.NoError(t, err)
-	err = gofakeit.Struct(&profile2)
-	require.NoError(t, err)
-	err = gofakeit.Struct(&profile3)
-	require.NoError(t, err)
-	thing.Company = company
-	thing.CompanyTwo = company2
-	thing.CompanyThree = company3
-	thing.Address = address
-	thing.Comments = []*Comment{comment1, comment2, comment3}
-	thing.Profiles = []*Profile{profile1, profile2, profile3}
+	thing.Company = companies[0]
+	thing.CompanyTwo = companies[1]
+	thing.CompanyThree = companies[2]
+	thing.Address = getPostgresAddress(t)
+	thing.Comments = getRandomNumPostgresComments(t)
+	thing.Profiles = getRandomNumPostgresProfiles(t)
 	theMap := gofakeit.Map()
 	bytes, err := json.Marshal(theMap)
+	require.NoError(t, err)
 	err = json.Unmarshal(bytes, &thing.AStructpb)
 	require.NoError(t, err)
 	return
+}
+
+func getRandomNumPostgresComments(t *testing.T) []*Comment {
+	return getPostgresComments(t, gofakeit.Number(2, 10))
+}
+
+func getPostgresComments(t *testing.T, num int) []*Comment {
+	comments := []*Comment{}
+	for i := 0; i < num; i++ {
+		var comment *Comment
+		err := gofakeit.Struct(&comment)
+		require.NoError(t, err)
+		comments = append(comments, comment)
+	}
+	return comments
+}
+
+func getRandomNumPostgresProfiles(t *testing.T) []*Profile {
+	return getPostgresProfiles(t, gofakeit.Number(2, 10))
+}
+
+func getPostgresProfiles(t *testing.T, num int) []*Profile {
+	profiles := []*Profile{}
+	for i := 0; i < num; i++ {
+		var profile *Profile
+		err := gofakeit.Struct(&profile)
+		require.NoError(t, err)
+		profiles = append(profiles, profile)
+	}
+	return profiles
+}
+
+func getRandomNumPostgresCompanys(t *testing.T) []*Company {
+	return getPostgresCompanys(t, gofakeit.Number(2, 10))
+}
+
+func getPostgresCompanys(t *testing.T, num int) []*Company {
+	companys := []*Company{}
+	for i := 0; i < num; i++ {
+		companys = append(companys, getPostgresCompany(t))
+	}
+	return companys
+}
+
+func getPostgresCompany(t *testing.T) *Company {
+	var company *Company
+	err := gofakeit.Struct(&company)
+	require.NoError(t, err)
+	return company
+}
+
+func getPostgresAddress(t *testing.T) *Address {
+	var address *Address
+	err := gofakeit.Struct(&address)
+	require.NoError(t, err)
+	return address
 }
