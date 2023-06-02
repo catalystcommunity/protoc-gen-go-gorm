@@ -30,6 +30,7 @@ func (pm *PreparedMessage) Parse() (err error) {
 	pm.Engine = *engine
 	g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "context"})
 	g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "gorm.io/gorm"})
+	g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "github.com/google/uuid"})
 	if *engine == cockroachdbEngine {
 		g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "github.com/cockroachdb/cockroach-go/v2/crdb/crdbgorm"})
 	}
