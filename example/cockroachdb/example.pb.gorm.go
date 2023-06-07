@@ -440,24 +440,33 @@ func (p *UserProtos) Upsert(ctx context.Context, db *gorm.DB, selects, omits []s
 				}
 			}
 			if len(updates) > 0 {
+				toSave := []*UserGormModel{}
 				for _, update := range updates {
+					thing := &UserGormModel{}
+					*thing = *update
+					toSave = append(toSave, thing)
+				}
+				if err = tx.Transaction(func(tx2 *gorm.DB) error {
 					if !omitMap["Address"] {
-						if err = tx.Model(&update).Association("Address").Unscoped().Replace(update.Address); err != nil {
+						if err = tx2.Model(&updates).Association("Address").Unscoped().Clear(); err != nil {
 							return err
 						}
 					}
 					if !omitMap["Comments"] {
-						if err = tx.Model(&update).Association("Comments").Unscoped().Replace(update.Comments); err != nil {
+						if err = tx2.Model(&updates).Association("Comments").Unscoped().Clear(); err != nil {
 							return err
 						}
 					}
 					if !omitMap["Profiles"] {
-						if err = tx.Model(&update).Association("Profiles").Unscoped().Replace(update.Profiles); err != nil {
+						if err = tx2.Model(&updates).Association("Profiles").Unscoped().Clear(); err != nil {
 							return err
 						}
 					}
+					return nil
+				}); err != nil {
+					return err
 				}
-				return tx.Save(&updates).Error
+				return tx.Save(&toSave).Error
 			}
 			return nil
 		}); err != nil {
@@ -645,7 +654,13 @@ func (p *CompanyProtos) Upsert(ctx context.Context, db *gorm.DB, selects, omits 
 				}
 			}
 			if len(updates) > 0 {
-				return tx.Save(&updates).Error
+				toSave := []*CompanyGormModel{}
+				for _, update := range updates {
+					thing := &CompanyGormModel{}
+					*thing = *update
+					toSave = append(toSave, thing)
+				}
+				return tx.Save(&toSave).Error
 			}
 			return nil
 		}); err != nil {
@@ -851,7 +866,13 @@ func (p *AddressProtos) Upsert(ctx context.Context, db *gorm.DB, selects, omits 
 				}
 			}
 			if len(updates) > 0 {
-				return tx.Save(&updates).Error
+				toSave := []*AddressGormModel{}
+				for _, update := range updates {
+					thing := &AddressGormModel{}
+					*thing = *update
+					toSave = append(toSave, thing)
+				}
+				return tx.Save(&toSave).Error
 			}
 			return nil
 		}); err != nil {
@@ -1046,7 +1067,13 @@ func (p *CommentProtos) Upsert(ctx context.Context, db *gorm.DB, selects, omits 
 				}
 			}
 			if len(updates) > 0 {
-				return tx.Save(&updates).Error
+				toSave := []*CommentGormModel{}
+				for _, update := range updates {
+					thing := &CommentGormModel{}
+					*thing = *update
+					toSave = append(toSave, thing)
+				}
+				return tx.Save(&toSave).Error
 			}
 			return nil
 		}); err != nil {
@@ -1234,7 +1261,13 @@ func (p *ProfileProtos) Upsert(ctx context.Context, db *gorm.DB, selects, omits 
 				}
 			}
 			if len(updates) > 0 {
-				return tx.Save(&updates).Error
+				toSave := []*ProfileGormModel{}
+				for _, update := range updates {
+					thing := &ProfileGormModel{}
+					*thing = *update
+					toSave = append(toSave, thing)
+				}
+				return tx.Save(&toSave).Error
 			}
 			return nil
 		}); err != nil {

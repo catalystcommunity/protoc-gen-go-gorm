@@ -246,32 +246,29 @@ func (p *{{.GoIdent.GoName}}Protos) Upsert(ctx context.Context, db *gorm.DB, sel
 				}
 			}
 			if len(updates) > 0 {
-				{{ if .HasReplaceRelationships -}}
+				toSave := []*{{ .Model.Name }}{}
 				for _, update := range updates {
-				{{ range .Model.Fields -}}
-				{{ if .Options.GetManyToMany -}}
-				if !omitMap["{{ .GoName }}"] {
-					if err = tx.Model(&update).Association("{{ .GoName }}").Unscoped().Replace(update.{{ .GoName }}); err != nil {
-						return err
-					}
+					thing := &{{ .Model.Name }}{}
+					*thing = *update
+					toSave = append(toSave, thing)
 				}
-				{{ else if .Options.GetHasMany -}}
-				if !omitMap["{{ .GoName }}"] {
-					if err = tx.Model(&update).Association("{{ .GoName }}").Unscoped().Replace(update.{{ .GoName }}); err != nil {
-						return err
+				{{ if .HasReplaceRelationships -}}
+				if err = tx.Transaction(func(tx2 *gorm.DB) error {
+					{{ range .Model.Fields -}}
+					{{ if or .Options.GetManyToMany .Options.GetHasMany .Options.GetHasOne -}}
+					if !omitMap["{{ .GoName }}"] {
+						if err = tx2.Model(&updates).Association("{{ .GoName }}").Unscoped().Clear(); err != nil {
+							return err
+						}
 					}
-				}
-				{{ else if .Options.GetHasOne -}}
-				if !omitMap["{{ .GoName }}"] {
-					if err = tx.Model(&update).Association("{{ .GoName }}").Unscoped().Replace(update.{{ .GoName }}); err != nil {
-						return err
-					}
+					{{ end -}}
+					{{ end -}}
+					return nil
+				}); err != nil {
+					return err
 				}
 				{{ end -}}
-				{{ end -}}
-				}
-				{{ end -}}
-				return tx.Save(&updates).Error
+				return tx.Save(&toSave).Error
 			}
 			return nil
 		}); err != nil {
