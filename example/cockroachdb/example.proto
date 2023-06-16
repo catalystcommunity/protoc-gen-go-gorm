@@ -85,6 +85,10 @@ message User {
   repeated EnumOne int_enum_list = 46;
   // @gotags: fake:"{number:1,9}"
   repeated EnumOne string_enum_list = 47 [(gorm.field).enum_as_string = true];
+  // @gotags: fake:"{date:2006-01-02}"
+  string date = 48 [(gorm.field).time_format_override = "2006-01-02"];
+  // @gotags: fake:"{date:2006-01-02}"
+  optional string optional_date = 49 [(gorm.field).time_format_override = "2006-01-02"];
 }
 
 message Company {

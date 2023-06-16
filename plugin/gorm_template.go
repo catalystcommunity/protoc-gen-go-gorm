@@ -69,6 +69,14 @@ func (m *{{ .Model.Name }}) ToProto() (theProto *{{.GoIdent.GoName}}, err error)
 			return
 		}
 	}
+    {{ else if .Options.TimeFormatOverride }}
+	if m.{{ .GoName }} != nil {
+	{{- if .IsOptional }}
+		theProto.{{ .GoName }} = lo.ToPtr(m.{{ .GoName }}.UTC().Format("{{ .TimeFormat }}"))
+	{{- else }}
+		theProto.{{ .GoName }} = m.{{ .GoName }}.UTC().Format("{{ .TimeFormat }}")
+	{{- end }}
+	}
     {{ else if and .IsMessage (eq .IsRepeated false) }}
 	if theProto.{{ .GoName }}, err = m.{{ .GoName }}.ToProto(); err != nil {
 		return
@@ -134,6 +142,23 @@ func (p *{{.GoIdent.GoName}}) ToModel() (theModel *{{ .Model.Name }}, err error)
 		theModel.{{ .GoName }} = lo.ToPtr(p.{{ .GoName }}.AsTime())
 	}
     {{ end }}
+    {{ else if .Options.TimeFormatOverride }}
+	{{- if .IsOptional }}
+	if p.{{ .GoName }} != nil {
+		var date time.Time
+		if date, err = time.Parse("{{ .TimeFormat }}", *p.{{ .GoName }}); err != nil {
+			return
+		}
+	{{- else }}
+	if p.{{ .GoName }} != "" {
+		var date time.Time
+		if date, err = time.Parse("{{ .TimeFormat }}", p.{{ .GoName }}); err != nil {
+			return
+		}
+	{{- end }}
+		dateUTC := date.UTC()
+		theModel.{{ .GoName }} = &dateUTC
+	}
     {{ else if .IsStructPb }}
 	if p.{{ .GoName }} != nil {
 		var jsonBytes []byte

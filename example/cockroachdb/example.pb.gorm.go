@@ -115,6 +115,12 @@ type UserGormModel struct {
 
 	// @gotags: fake:"{number:1,9}"
 	StringEnumList pq.StringArray `gorm:"type:string[];" json:"stringEnumList" fake:"{number:1,9}"`
+
+	// @gotags: fake:"{date:2006-01-02}"
+	Date *time.Time `json:"date" fake:"{date:2006-01-02}"`
+
+	// @gotags: fake:"{date:2006-01-02}"
+	OptionalDate *time.Time `json:"optionalDate" fake:"{date:2006-01-02}"`
 }
 
 func (m *UserGormModel) TableName() string {
@@ -263,6 +269,14 @@ func (m *UserGormModel) ToProto() (theProto *User, err error) {
 		}
 	}
 
+	if m.Date != nil {
+		theProto.Date = m.Date.UTC().Format("2006-01-02")
+	}
+
+	if m.OptionalDate != nil {
+		theProto.OptionalDate = lo.ToPtr(m.OptionalDate.UTC().Format("2006-01-02"))
+	}
+
 	return
 }
 
@@ -386,6 +400,24 @@ func (p *User) ToModel() (theModel *UserGormModel, err error) {
 		for _, val := range p.StringEnumList {
 			theModel.StringEnumList = append(theModel.StringEnumList, val.String())
 		}
+	}
+
+	if p.Date != "" {
+		var date time.Time
+		if date, err = time.Parse("2006-01-02", p.Date); err != nil {
+			return
+		}
+		dateUTC := date.UTC()
+		theModel.Date = &dateUTC
+	}
+
+	if p.OptionalDate != nil {
+		var date time.Time
+		if date, err = time.Parse("2006-01-02", *p.OptionalDate); err != nil {
+			return
+		}
+		dateUTC := date.UTC()
+		theModel.OptionalDate = &dateUTC
 	}
 
 	return
