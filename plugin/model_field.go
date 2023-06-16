@@ -91,7 +91,7 @@ func getModelFieldType(field *ModelField) string {
 			g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "google.golang.org/protobuf/types/known/timestamppb"})
 		}
 		return "*time.Time"
-	} else if field.Options.TimeFormatOverride != "" {
+	} else if field.Options != nil && field.Options.TimeFormatOverride != "" {
 		if field.IsOptional {
 			g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "github.com/samber/lo"})
 		}
