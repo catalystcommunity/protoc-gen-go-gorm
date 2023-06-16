@@ -69,7 +69,7 @@ func (m *{{ .Model.Name }}) ToProto() (theProto *{{.GoIdent.GoName}}, err error)
 			return
 		}
 	}
-    {{ else if .Options.TimeFormatOverride }}
+    {{ else if and .Options .Options.TimeFormatOverride }}
 	if m.{{ .GoName }} != nil {
 	{{- if .IsOptional }}
 		theProto.{{ .GoName }} = lo.ToPtr(m.{{ .GoName }}.UTC().Format("{{ .TimeFormat }}"))
@@ -142,7 +142,7 @@ func (p *{{.GoIdent.GoName}}) ToModel() (theModel *{{ .Model.Name }}, err error)
 		theModel.{{ .GoName }} = lo.ToPtr(p.{{ .GoName }}.AsTime())
 	}
     {{ end }}
-    {{ else if .Options.TimeFormatOverride }}
+    {{ else if and .Options .Options.TimeFormatOverride }}
 	{{- if .IsOptional }}
 	if p.{{ .GoName }} != nil {
 		var date time.Time
