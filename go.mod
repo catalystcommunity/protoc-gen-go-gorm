@@ -8,6 +8,7 @@ require (
 	github.com/gertd/go-pluralize v0.2.1
 	github.com/golang/glog v1.1.1
 	github.com/google/go-cmp v0.5.9
+	github.com/google/uuid v1.3.0
 	github.com/jackc/pgtype v1.14.0
 	github.com/lib/pq v1.10.8
 	github.com/orlangure/gnomock v0.28.0
@@ -28,7 +29,6 @@ require (
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/google/uuid v1.3.0 // indirect
 	github.com/jackc/pgio v1.0.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect

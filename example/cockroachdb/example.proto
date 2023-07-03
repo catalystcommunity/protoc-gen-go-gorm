@@ -89,6 +89,8 @@ message User {
   string date = 48 [(gorm.field).time_format_override = "2006-01-02"];
   // @gotags: fake:"{date:2006-01-02}"
   optional string optional_date = 49 [(gorm.field).time_format_override = "2006-01-02"];
+  // @gotags: fake:"skip"
+  google.protobuf.Timestamp some_timestamp = 50;
 }
 
 message Company {
