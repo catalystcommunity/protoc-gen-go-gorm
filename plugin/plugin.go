@@ -500,6 +500,9 @@ var goTypeMap = map[protoreflect.Kind]string{
 }
 
 func isTimestamp(field *protogen.Field) bool {
+	if field.Desc.Message() != nil && field.Desc.Message().FullName() == "google.protobuf.Timestamp" {
+		return true
+	}
 	fieldName := strings.Replace(strings.Replace(strings.ToLower(field.GoName), "_", "", -1), "-", "", -1)
 	return fieldName == "createdat" || fieldName == "updatedat" || fieldName == "deletedat"
 }

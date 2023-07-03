@@ -121,6 +121,9 @@ type UserGormModel struct {
 
 	// @gotags: fake:"{date:2006-01-02}"
 	OptionalDate *time.Time `json:"optionalDate" fake:"{date:2006-01-02}"`
+
+	// @gotags: fake:"skip"
+	SomeTimestamp *time.Time `gorm:"type:timestamp;" json:"someTimestamp" fake:"skip"`
 }
 
 func (m *UserGormModel) TableName() string {
@@ -277,6 +280,10 @@ func (m *UserGormModel) ToProto() (theProto *User, err error) {
 		theProto.OptionalDate = lo.ToPtr(m.OptionalDate.UTC().Format("2006-01-02"))
 	}
 
+	if m.SomeTimestamp != nil {
+		theProto.SomeTimestamp = timestamppb.New(*m.SomeTimestamp)
+	}
+
 	return
 }
 
@@ -418,6 +425,10 @@ func (p *User) ToModel() (theModel *UserGormModel, err error) {
 		}
 		dateUTC := date.UTC()
 		theModel.OptionalDate = &dateUTC
+	}
+
+	if p.SomeTimestamp != nil {
+		theModel.SomeTimestamp = lo.ToPtr(p.SomeTimestamp.AsTime())
 	}
 
 	return
