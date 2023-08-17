@@ -214,7 +214,7 @@ func (p *{{.GoIdent.GoName}}) ToModel() (theModel *{{ .Model.Name }}, err error)
 	return
 }
 
-func (m {{ .Model.Name }}s) GetByModelIds(ctx context.Context, db *gorm.DB) (err error) {
+func (m {{ .Model.Name }}s) GetByModelIds(ctx context.Context, db *gorm.DB, preloads ...string) (err error) {
 	ids := []string{}
 	for _, model := range m {
 		if model.Id != nil {
@@ -227,13 +227,17 @@ func (m {{ .Model.Name }}s) GetByModelIds(ctx context.Context, db *gorm.DB) (err
 		{{ else -}}
 		err = db.Transaction(func(tx *gorm.DB) error {
 		{{ end -}}
-			return tx.Preload(clause.Associations).Where("id in ?", ids).Find(&m).Error
+			tx = tx.Preload(clause.Associations)
+			for _, preload := range preloads {
+				tx = tx.Preload(preload)
+			}
+			return tx.Where("id in ?", ids).Find(&m).Error
 		})
 	}
 	return
 }
 
-func (p *{{.GoIdent.GoName}}Protos) Upsert(ctx context.Context, db *gorm.DB, selects, omits []string, fullSaveAssociations bool) (err error) {
+func (p *{{.GoIdent.GoName}}Protos) Upsert(ctx context.Context, db *gorm.DB, selects, omits []string, fullSaveAssociations bool, preloads ...string) (err error) {
 	if p != nil {
 		omitMap := map[string]bool{}
 		for _, omit := range omits {
@@ -301,7 +305,7 @@ func (p *{{.GoIdent.GoName}}Protos) Upsert(ctx context.Context, db *gorm.DB, sel
 		}
 		models := {{ .Model.Name }}s{}
 		models = append(creates, updates...)
-		if err = models.GetByModelIds(ctx, db); err != nil {
+		if err = models.GetByModelIds(ctx, db, preloads...); err != nil {
 			return
 		}
 		*p, err = models.ToProtos()
@@ -309,7 +313,7 @@ func (p *{{.GoIdent.GoName}}Protos) Upsert(ctx context.Context, db *gorm.DB, sel
 	return
 }
 
-func (p *{{.GoIdent.GoName}}Protos) List(ctx context.Context, db *gorm.DB, limit, offset int, order interface{}) (err error) {
+func (p *{{.GoIdent.GoName}}Protos) List(ctx context.Context, db *gorm.DB, limit, offset int, order interface{}, preloads ...string) (err error) {
 	if p != nil {
 		var models {{ .Model.Name }}s
 		{{ if eq .Engine "cockroachdb" -}}
@@ -318,6 +322,9 @@ func (p *{{.GoIdent.GoName}}Protos) List(ctx context.Context, db *gorm.DB, limit
 		if err = db.Transaction(func(tx *gorm.DB) error {
 		{{ end -}}
 			tx = tx.Preload(clause.Associations).Limit(limit).Offset(offset)
+            for _, preload := range preloads {
+              tx = tx.Preload(preload)
+            }
 			if order != nil {
 				tx = tx.Order(order)
 			}
@@ -330,7 +337,7 @@ func (p *{{.GoIdent.GoName}}Protos) List(ctx context.Context, db *gorm.DB, limit
 	return
 }
 
-func (p *{{.GoIdent.GoName}}Protos) GetByIds(ctx context.Context, db *gorm.DB, ids []string) (err error) {
+func (p *{{.GoIdent.GoName}}Protos) GetByIds(ctx context.Context, db *gorm.DB, ids []string, preloads ...string) (err error) {
 	if p != nil {
 		var models {{ .Model.Name }}s
 		{{ if eq .Engine "cockroachdb" -}}
@@ -338,7 +345,11 @@ func (p *{{.GoIdent.GoName}}Protos) GetByIds(ctx context.Context, db *gorm.DB, i
 		{{ else -}}
 		if err = db.Transaction(func(tx *gorm.DB) error {
 		{{ end -}}
-			return tx.Preload(clause.Associations).Where("id in ?", ids).Find(&models).Error
+            tx = tx.Preload(clause.Associations)
+			for _, preload := range preloads {
+              tx = tx.Preload(preload)
+            }
+			return tx.Where("id in ?", ids).Find(&models).Error
 		}); err != nil {
 			return
 		}
