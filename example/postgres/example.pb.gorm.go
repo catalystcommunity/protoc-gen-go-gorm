@@ -510,7 +510,10 @@ func (p *UserProtos) Upsert(ctx context.Context, db *gorm.DB, selects, omits []s
 		if err = models.GetByModelIds(ctx, db, preloads...); err != nil {
 			return
 		}
-		*p, err = models.ToProtos()
+		if len(models) > 0 {
+			*p, err = models.ToProtos()
+		}
+
 	}
 	return
 }

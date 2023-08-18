@@ -304,7 +304,9 @@ func (p *{{.GoIdent.GoName}}Protos) Upsert(ctx context.Context, db *gorm.DB, sel
 		if err = models.GetByModelIds(ctx, db, preloads...); err != nil {
 			return
 		}
-		*p, err = models.ToProtos()
+		if len(models) > 0 {
+			*p, err = models.ToProtos()
+		}
 	}
 	return
 }
@@ -328,7 +330,9 @@ func (p *{{.GoIdent.GoName}}Protos) List(ctx context.Context, db *gorm.DB, limit
 		}); err != nil {
 			return
 		}
-		*p, err = models.ToProtos()
+		if len(models) > 0 {
+			*p, err = models.ToProtos()
+		}
 	}
 	return
 }
@@ -349,7 +353,9 @@ func (p *{{.GoIdent.GoName}}Protos) GetByIds(ctx context.Context, db *gorm.DB, i
 		}); err != nil {
 			return
 		}
-		*p, err = models.ToProtos()
+		if len(models) > 0 {
+			*p, err = models.ToProtos()
+		}
 	}
 	return
 }
