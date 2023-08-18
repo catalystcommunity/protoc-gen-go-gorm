@@ -481,25 +481,23 @@ func (p *UserProtos) Upsert(ctx context.Context, db *gorm.DB, selects, omits []s
 					*thing = *update
 					toSave = append(toSave, thing)
 				}
-				if err = tx.Transaction(func(tx2 *gorm.DB) error {
-					if !omitMap["Address"] {
-						if err = tx2.Model(&updates).Association("Address").Unscoped().Clear(); err != nil {
-							return err
-						}
+				if !omitMap["Address"] {
+					clearAddressStatement := tx.Model(&updates).Association("Address").Unscoped()
+					if err = clearAddressStatement.Clear(); err != nil {
+						return err
 					}
-					if !omitMap["Comments"] {
-						if err = tx2.Model(&updates).Association("Comments").Unscoped().Clear(); err != nil {
-							return err
-						}
+				}
+				if !omitMap["Comments"] {
+					clearCommentsStatement := tx.Model(&updates).Association("Comments").Unscoped()
+					if err = clearCommentsStatement.Clear(); err != nil {
+						return err
 					}
-					if !omitMap["Profiles"] {
-						if err = tx2.Model(&updates).Association("Profiles").Unscoped().Clear(); err != nil {
-							return err
-						}
+				}
+				if !omitMap["Profiles"] {
+					clearProfilesStatement := tx.Model(&updates).Association("Profiles").Unscoped()
+					if err = clearProfilesStatement.Clear(); err != nil {
+						return err
 					}
-					return nil
-				}); err != nil {
-					return err
 				}
 				return tx.Save(&toSave).Error
 			}

@@ -282,20 +282,16 @@ func (p *{{.GoIdent.GoName}}Protos) Upsert(ctx context.Context, db *gorm.DB, sel
 					toSave = append(toSave, thing)
 				}
 				{{ if .HasReplaceRelationships -}}
-				if err = tx.Transaction(func(tx2 *gorm.DB) error {
-					{{ range .Model.Fields -}}
-					{{ if or .Options.GetManyToMany .Options.GetHasMany .Options.GetHasOne -}}
-					if !omitMap["{{ .GoName }}"] {
-						if err = tx2.Model(&updates).Association("{{ .GoName }}").Unscoped().Clear(); err != nil {
-							return err
-						}
+				{{ range .Model.Fields -}}
+				{{ if or .Options.GetManyToMany .Options.GetHasMany .Options.GetHasOne -}}
+				if !omitMap["{{ .GoName }}"] {
+                    clear{{ .GoName }}Statement := tx.Model(&updates).Association("{{ .GoName }}").Unscoped()
+					if err = clear{{ .GoName }}Statement.Clear(); err != nil {
+						return err
 					}
-					{{ end -}}
-					{{ end -}}
-					return nil
-				}); err != nil {
-					return err
 				}
+				{{ end -}}
+				{{ end -}}
 				{{ end -}}
 				return tx.Save(&toSave).Error
 			}
