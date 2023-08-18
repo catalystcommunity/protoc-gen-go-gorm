@@ -422,7 +422,7 @@ func (p *User) ToModel() (theModel *UserGormModel, err error) {
 	return
 }
 
-func (m UserGormModels) GetByModelIds(ctx context.Context, db *gorm.DB, preloads ...string) (err error) {
+func (m UserGormModels) GetByModelIds(ctx context.Context, tx *gorm.DB, preloads ...string) (err error) {
 	ids := []string{}
 	for _, model := range m {
 		if model.Id != nil {
@@ -430,18 +430,16 @@ func (m UserGormModels) GetByModelIds(ctx context.Context, db *gorm.DB, preloads
 		}
 	}
 	if len(ids) > 0 {
-		err = db.Transaction(func(tx *gorm.DB) error {
-			tx = tx.Preload(clause.Associations)
-			for _, preload := range preloads {
-				tx = tx.Preload(preload)
-			}
-			return tx.Where("id in ?", ids).Find(&m).Error
-		})
+		statement := tx.Preload(clause.Associations)
+		for _, preload := range preloads {
+			statement = statement.Preload(preload)
+		}
+		err = statement.Where("id in ?", ids).Find(&m).Error
 	}
 	return
 }
 
-func (p *UserProtos) Upsert(ctx context.Context, db *gorm.DB, selects, omits []string, fullSaveAssociations bool, preloads ...string) (err error) {
+func (p *UserProtos) Upsert(ctx context.Context, tx *gorm.DB, selects, omits []string, fullSaveAssociations bool, preloads ...string) (err error) {
 	if p != nil {
 		omitMap := map[string]bool{}
 		for _, omit := range omits {
@@ -461,104 +459,105 @@ func (p *UserProtos) Upsert(ctx context.Context, db *gorm.DB, selects, omits []s
 				}
 			}
 		}
-		if err = db.Transaction(func(tx *gorm.DB) error {
-			tx = tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations})
-			if len(selects) > 0 {
-				tx = tx.Select(selects)
+		statement := tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations})
+		if len(selects) > 0 {
+			statement = statement.Select(selects)
+		}
+		if len(omits) > 0 {
+			statement = statement.Omit(omits...)
+		}
+		if len(creates) > 0 {
+			if err = statement.Create(&creates).Error; err != nil {
+				return
 			}
-			if len(omits) > 0 {
-				tx = tx.Omit(omits...)
+		}
+		if len(updates) > 0 {
+			toSave := []*UserGormModel{}
+			for _, update := range updates {
+				thing := &UserGormModel{}
+				*thing = *update
+				toSave = append(toSave, thing)
 			}
-			if len(creates) > 0 {
-				if err = tx.Create(&creates).Error; err != nil {
-					return err
+			if !omitMap["Address"] {
+				clearAddressStatement := tx.Model(&updates).Association("Address").Unscoped()
+				if err = clearAddressStatement.Clear(); err != nil {
+					return
 				}
 			}
-			if len(updates) > 0 {
-				toSave := []*UserGormModel{}
-				for _, update := range updates {
-					thing := &UserGormModel{}
-					*thing = *update
-					toSave = append(toSave, thing)
+			if !omitMap["Comments"] {
+				clearCommentsStatement := tx.Model(&updates).Association("Comments").Unscoped()
+				if err = clearCommentsStatement.Clear(); err != nil {
+					return
 				}
-				if !omitMap["Address"] {
-					clearAddressStatement := tx.Model(&updates).Association("Address").Unscoped()
-					if err = clearAddressStatement.Clear(); err != nil {
-						return err
-					}
-				}
-				if !omitMap["Comments"] {
-					clearCommentsStatement := tx.Model(&updates).Association("Comments").Unscoped()
-					if err = clearCommentsStatement.Clear(); err != nil {
-						return err
-					}
-				}
-				if !omitMap["Profiles"] {
-					clearProfilesStatement := tx.Model(&updates).Association("Profiles").Unscoped()
-					if err = clearProfilesStatement.Clear(); err != nil {
-						return err
-					}
-				}
-				return tx.Save(&toSave).Error
 			}
-			return nil
-		}); err != nil {
-			return
+			if !omitMap["Profiles"] {
+				clearProfilesStatement := tx.Model(&updates).Association("Profiles").Unscoped()
+				if err = clearProfilesStatement.Clear(); err != nil {
+					return
+				}
+			}
+			if err = statement.Save(&toSave).Error; err != nil {
+				return
+			}
 		}
 		models := UserGormModels{}
 		models = append(creates, updates...)
-		if err = models.GetByModelIds(ctx, db, preloads...); err != nil {
+		if err = models.GetByModelIds(ctx, tx, preloads...); err != nil {
 			return
 		}
 		if len(models) > 0 {
 			*p, err = models.ToProtos()
+		} else {
+			*p = UserProtos{}
 		}
-
 	}
 	return
 }
 
-func (p *UserProtos) List(ctx context.Context, db *gorm.DB, limit, offset int, order interface{}, preloads ...string) (err error) {
+func (p *UserProtos) List(ctx context.Context, tx *gorm.DB, limit, offset int, order interface{}, preloads ...string) (err error) {
 	if p != nil {
 		var models UserGormModels
-		if err = db.Transaction(func(tx *gorm.DB) error {
-			tx = tx.Preload(clause.Associations).Limit(limit).Offset(offset)
-			for _, preload := range preloads {
-				tx = tx.Preload(preload)
-			}
-			if order != nil {
-				tx = tx.Order(order)
-			}
-			return tx.Find(&models).Error
-		}); err != nil {
+		statement := tx.Preload(clause.Associations).Limit(limit).Offset(offset)
+		for _, preload := range preloads {
+			statement = statement.Preload(preload)
+		}
+		if order != nil {
+			statement = statement.Order(order)
+		}
+		if err = statement.Find(&models).Error; err != nil {
 			return
 		}
-		*p, err = models.ToProtos()
+		if len(models) > 0 {
+			*p, err = models.ToProtos()
+		} else {
+			*p = UserProtos{}
+		}
 	}
 	return
 }
 
-func (p *UserProtos) GetByIds(ctx context.Context, db *gorm.DB, ids []string, preloads ...string) (err error) {
+func (p *UserProtos) GetByIds(ctx context.Context, tx *gorm.DB, ids []string, preloads ...string) (err error) {
 	if p != nil {
 		var models UserGormModels
-		if err = db.Transaction(func(tx *gorm.DB) error {
-			tx = tx.Preload(clause.Associations)
-			for _, preload := range preloads {
-				tx = tx.Preload(preload)
-			}
-			return tx.Where("id in ?", ids).Find(&models).Error
-		}); err != nil {
+		statement := tx.Preload(clause.Associations)
+		for _, preload := range preloads {
+			statement = statement.Preload(preload)
+		}
+		if err = statement.Where("id in ?", ids).Find(&models).Error; err != nil {
 			return
 		}
-		*p, err = models.ToProtos()
+		if len(models) > 0 {
+			*p, err = models.ToProtos()
+		} else {
+			*p = UserProtos{}
+		}
 	}
 	return
 }
 
-func DeleteUserGormModels(ctx context.Context, db *gorm.DB, ids []string) error {
-	return db.Transaction(func(tx *gorm.DB) error {
-		return tx.Where("id in ?", ids).Delete(&UserGormModel{}).Error
-	})
+func DeleteUserGormModels(ctx context.Context, tx *gorm.DB, ids []string) error {
+	statement := tx.Where("id in ?", ids)
+	return statement.Delete(&UserGormModel{}).Error
 }
 
 type CompanyGormModels []*CompanyGormModel
@@ -648,7 +647,7 @@ func (p *Company) ToModel() (theModel *CompanyGormModel, err error) {
 	return
 }
 
-func (m CompanyGormModels) GetByModelIds(ctx context.Context, db *gorm.DB, preloads ...string) (err error) {
+func (m CompanyGormModels) GetByModelIds(ctx context.Context, tx *gorm.DB, preloads ...string) (err error) {
 	ids := []string{}
 	for _, model := range m {
 		if model.Id != nil {
@@ -656,18 +655,16 @@ func (m CompanyGormModels) GetByModelIds(ctx context.Context, db *gorm.DB, prelo
 		}
 	}
 	if len(ids) > 0 {
-		err = db.Transaction(func(tx *gorm.DB) error {
-			tx = tx.Preload(clause.Associations)
-			for _, preload := range preloads {
-				tx = tx.Preload(preload)
-			}
-			return tx.Where("id in ?", ids).Find(&m).Error
-		})
+		statement := tx.Preload(clause.Associations)
+		for _, preload := range preloads {
+			statement = statement.Preload(preload)
+		}
+		err = statement.Where("id in ?", ids).Find(&m).Error
 	}
 	return
 }
 
-func (p *CompanyProtos) Upsert(ctx context.Context, db *gorm.DB, selects, omits []string, fullSaveAssociations bool, preloads ...string) (err error) {
+func (p *CompanyProtos) Upsert(ctx context.Context, tx *gorm.DB, selects, omits []string, fullSaveAssociations bool, preloads ...string) (err error) {
 	if p != nil {
 		omitMap := map[string]bool{}
 		for _, omit := range omits {
@@ -687,83 +684,87 @@ func (p *CompanyProtos) Upsert(ctx context.Context, db *gorm.DB, selects, omits 
 				}
 			}
 		}
-		if err = db.Transaction(func(tx *gorm.DB) error {
-			tx = tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations})
-			if len(selects) > 0 {
-				tx = tx.Select(selects)
+		statement := tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations})
+		if len(selects) > 0 {
+			statement = statement.Select(selects)
+		}
+		if len(omits) > 0 {
+			statement = statement.Omit(omits...)
+		}
+		if len(creates) > 0 {
+			if err = statement.Create(&creates).Error; err != nil {
+				return
 			}
-			if len(omits) > 0 {
-				tx = tx.Omit(omits...)
+		}
+		if len(updates) > 0 {
+			toSave := []*CompanyGormModel{}
+			for _, update := range updates {
+				thing := &CompanyGormModel{}
+				*thing = *update
+				toSave = append(toSave, thing)
 			}
-			if len(creates) > 0 {
-				if err = tx.Create(&creates).Error; err != nil {
-					return err
-				}
+			if err = statement.Save(&toSave).Error; err != nil {
+				return
 			}
-			if len(updates) > 0 {
-				toSave := []*CompanyGormModel{}
-				for _, update := range updates {
-					thing := &CompanyGormModel{}
-					*thing = *update
-					toSave = append(toSave, thing)
-				}
-				return tx.Save(&toSave).Error
-			}
-			return nil
-		}); err != nil {
-			return
 		}
 		models := CompanyGormModels{}
 		models = append(creates, updates...)
-		if err = models.GetByModelIds(ctx, db, preloads...); err != nil {
+		if err = models.GetByModelIds(ctx, tx, preloads...); err != nil {
 			return
 		}
-		*p, err = models.ToProtos()
+		if len(models) > 0 {
+			*p, err = models.ToProtos()
+		} else {
+			*p = CompanyProtos{}
+		}
 	}
 	return
 }
 
-func (p *CompanyProtos) List(ctx context.Context, db *gorm.DB, limit, offset int, order interface{}, preloads ...string) (err error) {
+func (p *CompanyProtos) List(ctx context.Context, tx *gorm.DB, limit, offset int, order interface{}, preloads ...string) (err error) {
 	if p != nil {
 		var models CompanyGormModels
-		if err = db.Transaction(func(tx *gorm.DB) error {
-			tx = tx.Preload(clause.Associations).Limit(limit).Offset(offset)
-			for _, preload := range preloads {
-				tx = tx.Preload(preload)
-			}
-			if order != nil {
-				tx = tx.Order(order)
-			}
-			return tx.Find(&models).Error
-		}); err != nil {
+		statement := tx.Preload(clause.Associations).Limit(limit).Offset(offset)
+		for _, preload := range preloads {
+			statement = statement.Preload(preload)
+		}
+		if order != nil {
+			statement = statement.Order(order)
+		}
+		if err = statement.Find(&models).Error; err != nil {
 			return
 		}
-		*p, err = models.ToProtos()
+		if len(models) > 0 {
+			*p, err = models.ToProtos()
+		} else {
+			*p = CompanyProtos{}
+		}
 	}
 	return
 }
 
-func (p *CompanyProtos) GetByIds(ctx context.Context, db *gorm.DB, ids []string, preloads ...string) (err error) {
+func (p *CompanyProtos) GetByIds(ctx context.Context, tx *gorm.DB, ids []string, preloads ...string) (err error) {
 	if p != nil {
 		var models CompanyGormModels
-		if err = db.Transaction(func(tx *gorm.DB) error {
-			tx = tx.Preload(clause.Associations)
-			for _, preload := range preloads {
-				tx = tx.Preload(preload)
-			}
-			return tx.Where("id in ?", ids).Find(&models).Error
-		}); err != nil {
+		statement := tx.Preload(clause.Associations)
+		for _, preload := range preloads {
+			statement = statement.Preload(preload)
+		}
+		if err = statement.Where("id in ?", ids).Find(&models).Error; err != nil {
 			return
 		}
-		*p, err = models.ToProtos()
+		if len(models) > 0 {
+			*p, err = models.ToProtos()
+		} else {
+			*p = CompanyProtos{}
+		}
 	}
 	return
 }
 
-func DeleteCompanyGormModels(ctx context.Context, db *gorm.DB, ids []string) error {
-	return db.Transaction(func(tx *gorm.DB) error {
-		return tx.Where("id in ?", ids).Delete(&CompanyGormModel{}).Error
-	})
+func DeleteCompanyGormModels(ctx context.Context, tx *gorm.DB, ids []string) error {
+	statement := tx.Where("id in ?", ids)
+	return statement.Delete(&CompanyGormModel{}).Error
 }
 
 type AddressGormModels []*AddressGormModel
@@ -860,7 +861,7 @@ func (p *Address) ToModel() (theModel *AddressGormModel, err error) {
 	return
 }
 
-func (m AddressGormModels) GetByModelIds(ctx context.Context, db *gorm.DB, preloads ...string) (err error) {
+func (m AddressGormModels) GetByModelIds(ctx context.Context, tx *gorm.DB, preloads ...string) (err error) {
 	ids := []string{}
 	for _, model := range m {
 		if model.Id != nil {
@@ -868,18 +869,16 @@ func (m AddressGormModels) GetByModelIds(ctx context.Context, db *gorm.DB, prelo
 		}
 	}
 	if len(ids) > 0 {
-		err = db.Transaction(func(tx *gorm.DB) error {
-			tx = tx.Preload(clause.Associations)
-			for _, preload := range preloads {
-				tx = tx.Preload(preload)
-			}
-			return tx.Where("id in ?", ids).Find(&m).Error
-		})
+		statement := tx.Preload(clause.Associations)
+		for _, preload := range preloads {
+			statement = statement.Preload(preload)
+		}
+		err = statement.Where("id in ?", ids).Find(&m).Error
 	}
 	return
 }
 
-func (p *AddressProtos) Upsert(ctx context.Context, db *gorm.DB, selects, omits []string, fullSaveAssociations bool, preloads ...string) (err error) {
+func (p *AddressProtos) Upsert(ctx context.Context, tx *gorm.DB, selects, omits []string, fullSaveAssociations bool, preloads ...string) (err error) {
 	if p != nil {
 		omitMap := map[string]bool{}
 		for _, omit := range omits {
@@ -899,83 +898,87 @@ func (p *AddressProtos) Upsert(ctx context.Context, db *gorm.DB, selects, omits 
 				}
 			}
 		}
-		if err = db.Transaction(func(tx *gorm.DB) error {
-			tx = tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations})
-			if len(selects) > 0 {
-				tx = tx.Select(selects)
+		statement := tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations})
+		if len(selects) > 0 {
+			statement = statement.Select(selects)
+		}
+		if len(omits) > 0 {
+			statement = statement.Omit(omits...)
+		}
+		if len(creates) > 0 {
+			if err = statement.Create(&creates).Error; err != nil {
+				return
 			}
-			if len(omits) > 0 {
-				tx = tx.Omit(omits...)
+		}
+		if len(updates) > 0 {
+			toSave := []*AddressGormModel{}
+			for _, update := range updates {
+				thing := &AddressGormModel{}
+				*thing = *update
+				toSave = append(toSave, thing)
 			}
-			if len(creates) > 0 {
-				if err = tx.Create(&creates).Error; err != nil {
-					return err
-				}
+			if err = statement.Save(&toSave).Error; err != nil {
+				return
 			}
-			if len(updates) > 0 {
-				toSave := []*AddressGormModel{}
-				for _, update := range updates {
-					thing := &AddressGormModel{}
-					*thing = *update
-					toSave = append(toSave, thing)
-				}
-				return tx.Save(&toSave).Error
-			}
-			return nil
-		}); err != nil {
-			return
 		}
 		models := AddressGormModels{}
 		models = append(creates, updates...)
-		if err = models.GetByModelIds(ctx, db, preloads...); err != nil {
+		if err = models.GetByModelIds(ctx, tx, preloads...); err != nil {
 			return
 		}
-		*p, err = models.ToProtos()
+		if len(models) > 0 {
+			*p, err = models.ToProtos()
+		} else {
+			*p = AddressProtos{}
+		}
 	}
 	return
 }
 
-func (p *AddressProtos) List(ctx context.Context, db *gorm.DB, limit, offset int, order interface{}, preloads ...string) (err error) {
+func (p *AddressProtos) List(ctx context.Context, tx *gorm.DB, limit, offset int, order interface{}, preloads ...string) (err error) {
 	if p != nil {
 		var models AddressGormModels
-		if err = db.Transaction(func(tx *gorm.DB) error {
-			tx = tx.Preload(clause.Associations).Limit(limit).Offset(offset)
-			for _, preload := range preloads {
-				tx = tx.Preload(preload)
-			}
-			if order != nil {
-				tx = tx.Order(order)
-			}
-			return tx.Find(&models).Error
-		}); err != nil {
+		statement := tx.Preload(clause.Associations).Limit(limit).Offset(offset)
+		for _, preload := range preloads {
+			statement = statement.Preload(preload)
+		}
+		if order != nil {
+			statement = statement.Order(order)
+		}
+		if err = statement.Find(&models).Error; err != nil {
 			return
 		}
-		*p, err = models.ToProtos()
+		if len(models) > 0 {
+			*p, err = models.ToProtos()
+		} else {
+			*p = AddressProtos{}
+		}
 	}
 	return
 }
 
-func (p *AddressProtos) GetByIds(ctx context.Context, db *gorm.DB, ids []string, preloads ...string) (err error) {
+func (p *AddressProtos) GetByIds(ctx context.Context, tx *gorm.DB, ids []string, preloads ...string) (err error) {
 	if p != nil {
 		var models AddressGormModels
-		if err = db.Transaction(func(tx *gorm.DB) error {
-			tx = tx.Preload(clause.Associations)
-			for _, preload := range preloads {
-				tx = tx.Preload(preload)
-			}
-			return tx.Where("id in ?", ids).Find(&models).Error
-		}); err != nil {
+		statement := tx.Preload(clause.Associations)
+		for _, preload := range preloads {
+			statement = statement.Preload(preload)
+		}
+		if err = statement.Where("id in ?", ids).Find(&models).Error; err != nil {
 			return
 		}
-		*p, err = models.ToProtos()
+		if len(models) > 0 {
+			*p, err = models.ToProtos()
+		} else {
+			*p = AddressProtos{}
+		}
 	}
 	return
 }
 
-func DeleteAddressGormModels(ctx context.Context, db *gorm.DB, ids []string) error {
-	return db.Transaction(func(tx *gorm.DB) error {
-		return tx.Where("id in ?", ids).Delete(&AddressGormModel{}).Error
-	})
+func DeleteAddressGormModels(ctx context.Context, tx *gorm.DB, ids []string) error {
+	statement := tx.Where("id in ?", ids)
+	return statement.Delete(&AddressGormModel{}).Error
 }
 
 type CommentGormModels []*CommentGormModel
@@ -1072,7 +1075,7 @@ func (p *Comment) ToModel() (theModel *CommentGormModel, err error) {
 	return
 }
 
-func (m CommentGormModels) GetByModelIds(ctx context.Context, db *gorm.DB, preloads ...string) (err error) {
+func (m CommentGormModels) GetByModelIds(ctx context.Context, tx *gorm.DB, preloads ...string) (err error) {
 	ids := []string{}
 	for _, model := range m {
 		if model.Id != nil {
@@ -1080,18 +1083,16 @@ func (m CommentGormModels) GetByModelIds(ctx context.Context, db *gorm.DB, prelo
 		}
 	}
 	if len(ids) > 0 {
-		err = db.Transaction(func(tx *gorm.DB) error {
-			tx = tx.Preload(clause.Associations)
-			for _, preload := range preloads {
-				tx = tx.Preload(preload)
-			}
-			return tx.Where("id in ?", ids).Find(&m).Error
-		})
+		statement := tx.Preload(clause.Associations)
+		for _, preload := range preloads {
+			statement = statement.Preload(preload)
+		}
+		err = statement.Where("id in ?", ids).Find(&m).Error
 	}
 	return
 }
 
-func (p *CommentProtos) Upsert(ctx context.Context, db *gorm.DB, selects, omits []string, fullSaveAssociations bool, preloads ...string) (err error) {
+func (p *CommentProtos) Upsert(ctx context.Context, tx *gorm.DB, selects, omits []string, fullSaveAssociations bool, preloads ...string) (err error) {
 	if p != nil {
 		omitMap := map[string]bool{}
 		for _, omit := range omits {
@@ -1111,83 +1112,87 @@ func (p *CommentProtos) Upsert(ctx context.Context, db *gorm.DB, selects, omits 
 				}
 			}
 		}
-		if err = db.Transaction(func(tx *gorm.DB) error {
-			tx = tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations})
-			if len(selects) > 0 {
-				tx = tx.Select(selects)
+		statement := tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations})
+		if len(selects) > 0 {
+			statement = statement.Select(selects)
+		}
+		if len(omits) > 0 {
+			statement = statement.Omit(omits...)
+		}
+		if len(creates) > 0 {
+			if err = statement.Create(&creates).Error; err != nil {
+				return
 			}
-			if len(omits) > 0 {
-				tx = tx.Omit(omits...)
+		}
+		if len(updates) > 0 {
+			toSave := []*CommentGormModel{}
+			for _, update := range updates {
+				thing := &CommentGormModel{}
+				*thing = *update
+				toSave = append(toSave, thing)
 			}
-			if len(creates) > 0 {
-				if err = tx.Create(&creates).Error; err != nil {
-					return err
-				}
+			if err = statement.Save(&toSave).Error; err != nil {
+				return
 			}
-			if len(updates) > 0 {
-				toSave := []*CommentGormModel{}
-				for _, update := range updates {
-					thing := &CommentGormModel{}
-					*thing = *update
-					toSave = append(toSave, thing)
-				}
-				return tx.Save(&toSave).Error
-			}
-			return nil
-		}); err != nil {
-			return
 		}
 		models := CommentGormModels{}
 		models = append(creates, updates...)
-		if err = models.GetByModelIds(ctx, db, preloads...); err != nil {
+		if err = models.GetByModelIds(ctx, tx, preloads...); err != nil {
 			return
 		}
-		*p, err = models.ToProtos()
+		if len(models) > 0 {
+			*p, err = models.ToProtos()
+		} else {
+			*p = CommentProtos{}
+		}
 	}
 	return
 }
 
-func (p *CommentProtos) List(ctx context.Context, db *gorm.DB, limit, offset int, order interface{}, preloads ...string) (err error) {
+func (p *CommentProtos) List(ctx context.Context, tx *gorm.DB, limit, offset int, order interface{}, preloads ...string) (err error) {
 	if p != nil {
 		var models CommentGormModels
-		if err = db.Transaction(func(tx *gorm.DB) error {
-			tx = tx.Preload(clause.Associations).Limit(limit).Offset(offset)
-			for _, preload := range preloads {
-				tx = tx.Preload(preload)
-			}
-			if order != nil {
-				tx = tx.Order(order)
-			}
-			return tx.Find(&models).Error
-		}); err != nil {
+		statement := tx.Preload(clause.Associations).Limit(limit).Offset(offset)
+		for _, preload := range preloads {
+			statement = statement.Preload(preload)
+		}
+		if order != nil {
+			statement = statement.Order(order)
+		}
+		if err = statement.Find(&models).Error; err != nil {
 			return
 		}
-		*p, err = models.ToProtos()
+		if len(models) > 0 {
+			*p, err = models.ToProtos()
+		} else {
+			*p = CommentProtos{}
+		}
 	}
 	return
 }
 
-func (p *CommentProtos) GetByIds(ctx context.Context, db *gorm.DB, ids []string, preloads ...string) (err error) {
+func (p *CommentProtos) GetByIds(ctx context.Context, tx *gorm.DB, ids []string, preloads ...string) (err error) {
 	if p != nil {
 		var models CommentGormModels
-		if err = db.Transaction(func(tx *gorm.DB) error {
-			tx = tx.Preload(clause.Associations)
-			for _, preload := range preloads {
-				tx = tx.Preload(preload)
-			}
-			return tx.Where("id in ?", ids).Find(&models).Error
-		}); err != nil {
+		statement := tx.Preload(clause.Associations)
+		for _, preload := range preloads {
+			statement = statement.Preload(preload)
+		}
+		if err = statement.Where("id in ?", ids).Find(&models).Error; err != nil {
 			return
 		}
-		*p, err = models.ToProtos()
+		if len(models) > 0 {
+			*p, err = models.ToProtos()
+		} else {
+			*p = CommentProtos{}
+		}
 	}
 	return
 }
 
-func DeleteCommentGormModels(ctx context.Context, db *gorm.DB, ids []string) error {
-	return db.Transaction(func(tx *gorm.DB) error {
-		return tx.Where("id in ?", ids).Delete(&CommentGormModel{}).Error
-	})
+func DeleteCommentGormModels(ctx context.Context, tx *gorm.DB, ids []string) error {
+	statement := tx.Where("id in ?", ids)
+	return statement.Delete(&CommentGormModel{}).Error
 }
 
 type ProfileGormModels []*ProfileGormModel
@@ -1277,7 +1282,7 @@ func (p *Profile) ToModel() (theModel *ProfileGormModel, err error) {
 	return
 }
 
-func (m ProfileGormModels) GetByModelIds(ctx context.Context, db *gorm.DB, preloads ...string) (err error) {
+func (m ProfileGormModels) GetByModelIds(ctx context.Context, tx *gorm.DB, preloads ...string) (err error) {
 	ids := []string{}
 	for _, model := range m {
 		if model.Id != nil {
@@ -1285,18 +1290,16 @@ func (m ProfileGormModels) GetByModelIds(ctx context.Context, db *gorm.DB, prelo
 		}
 	}
 	if len(ids) > 0 {
-		err = db.Transaction(func(tx *gorm.DB) error {
-			tx = tx.Preload(clause.Associations)
-			for _, preload := range preloads {
-				tx = tx.Preload(preload)
-			}
-			return tx.Where("id in ?", ids).Find(&m).Error
-		})
+		statement := tx.Preload(clause.Associations)
+		for _, preload := range preloads {
+			statement = statement.Preload(preload)
+		}
+		err = statement.Where("id in ?", ids).Find(&m).Error
 	}
 	return
 }
 
-func (p *ProfileProtos) Upsert(ctx context.Context, db *gorm.DB, selects, omits []string, fullSaveAssociations bool, preloads ...string) (err error) {
+func (p *ProfileProtos) Upsert(ctx context.Context, tx *gorm.DB, selects, omits []string, fullSaveAssociations bool, preloads ...string) (err error) {
 	if p != nil {
 		omitMap := map[string]bool{}
 		for _, omit := range omits {
@@ -1316,81 +1319,85 @@ func (p *ProfileProtos) Upsert(ctx context.Context, db *gorm.DB, selects, omits 
 				}
 			}
 		}
-		if err = db.Transaction(func(tx *gorm.DB) error {
-			tx = tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations})
-			if len(selects) > 0 {
-				tx = tx.Select(selects)
+		statement := tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations})
+		if len(selects) > 0 {
+			statement = statement.Select(selects)
+		}
+		if len(omits) > 0 {
+			statement = statement.Omit(omits...)
+		}
+		if len(creates) > 0 {
+			if err = statement.Create(&creates).Error; err != nil {
+				return
 			}
-			if len(omits) > 0 {
-				tx = tx.Omit(omits...)
+		}
+		if len(updates) > 0 {
+			toSave := []*ProfileGormModel{}
+			for _, update := range updates {
+				thing := &ProfileGormModel{}
+				*thing = *update
+				toSave = append(toSave, thing)
 			}
-			if len(creates) > 0 {
-				if err = tx.Create(&creates).Error; err != nil {
-					return err
-				}
+			if err = statement.Save(&toSave).Error; err != nil {
+				return
 			}
-			if len(updates) > 0 {
-				toSave := []*ProfileGormModel{}
-				for _, update := range updates {
-					thing := &ProfileGormModel{}
-					*thing = *update
-					toSave = append(toSave, thing)
-				}
-				return tx.Save(&toSave).Error
-			}
-			return nil
-		}); err != nil {
-			return
 		}
 		models := ProfileGormModels{}
 		models = append(creates, updates...)
-		if err = models.GetByModelIds(ctx, db, preloads...); err != nil {
+		if err = models.GetByModelIds(ctx, tx, preloads...); err != nil {
 			return
 		}
-		*p, err = models.ToProtos()
+		if len(models) > 0 {
+			*p, err = models.ToProtos()
+		} else {
+			*p = ProfileProtos{}
+		}
 	}
 	return
 }
 
-func (p *ProfileProtos) List(ctx context.Context, db *gorm.DB, limit, offset int, order interface{}, preloads ...string) (err error) {
+func (p *ProfileProtos) List(ctx context.Context, tx *gorm.DB, limit, offset int, order interface{}, preloads ...string) (err error) {
 	if p != nil {
 		var models ProfileGormModels
-		if err = db.Transaction(func(tx *gorm.DB) error {
-			tx = tx.Preload(clause.Associations).Limit(limit).Offset(offset)
-			for _, preload := range preloads {
-				tx = tx.Preload(preload)
-			}
-			if order != nil {
-				tx = tx.Order(order)
-			}
-			return tx.Find(&models).Error
-		}); err != nil {
+		statement := tx.Preload(clause.Associations).Limit(limit).Offset(offset)
+		for _, preload := range preloads {
+			statement = statement.Preload(preload)
+		}
+		if order != nil {
+			statement = statement.Order(order)
+		}
+		if err = statement.Find(&models).Error; err != nil {
 			return
 		}
-		*p, err = models.ToProtos()
+		if len(models) > 0 {
+			*p, err = models.ToProtos()
+		} else {
+			*p = ProfileProtos{}
+		}
 	}
 	return
 }
 
-func (p *ProfileProtos) GetByIds(ctx context.Context, db *gorm.DB, ids []string, preloads ...string) (err error) {
+func (p *ProfileProtos) GetByIds(ctx context.Context, tx *gorm.DB, ids []string, preloads ...string) (err error) {
 	if p != nil {
 		var models ProfileGormModels
-		if err = db.Transaction(func(tx *gorm.DB) error {
-			tx = tx.Preload(clause.Associations)
-			for _, preload := range preloads {
-				tx = tx.Preload(preload)
-			}
-			return tx.Where("id in ?", ids).Find(&models).Error
-		}); err != nil {
+		statement := tx.Preload(clause.Associations)
+		for _, preload := range preloads {
+			statement = statement.Preload(preload)
+		}
+		if err = statement.Where("id in ?", ids).Find(&models).Error; err != nil {
 			return
 		}
-		*p, err = models.ToProtos()
+		if len(models) > 0 {
+			*p, err = models.ToProtos()
+		} else {
+			*p = ProfileProtos{}
+		}
 	}
 	return
 }
 
-func DeleteProfileGormModels(ctx context.Context, db *gorm.DB, ids []string) error {
-	return db.Transaction(func(tx *gorm.DB) error {
-		return tx.Where("id in ?", ids).Delete(&ProfileGormModel{}).Error
-	})
+func DeleteProfileGormModels(ctx context.Context, tx *gorm.DB, ids []string) error {
+	statement := tx.Where("id in ?", ids)
+	return statement.Delete(&ProfileGormModel{}).Error
 }
