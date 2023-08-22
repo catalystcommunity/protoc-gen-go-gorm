@@ -1,6 +1,6 @@
 version: v1
 plugins:
-  - remote: buf.build/library/plugins/go:v1.27.1-1
+  - plugin: buf.build/protocolbuffers/go:v1.31.0
     out: example
     opt:
     - paths=source_relative
@@ -10,7 +10,7 @@ plugins:
       - paths=source_relative
       - enums_as_ints=true
       - engine=cockroachdb
-  - name: go-json
+  - plugin: buf.build/community/mitchellh-go-json:v1.1.0
     out: example
     opt:
       - paths=source_relative
