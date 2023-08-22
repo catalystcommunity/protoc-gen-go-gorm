@@ -507,7 +507,7 @@ func (p *UserProtos) Upsert(ctx context.Context, tx *gorm.DB, selects, omits []s
 					return
 				}
 			}
-			if err = statement.Save(&toSave).Error; err != nil {
+			if err = tx.Save(&toSave).Error; err != nil {
 				return
 			}
 		}
@@ -714,7 +714,7 @@ func (p *CompanyProtos) Upsert(ctx context.Context, tx *gorm.DB, selects, omits 
 				*thing = *update
 				toSave = append(toSave, thing)
 			}
-			if err = statement.Save(&toSave).Error; err != nil {
+			if err = tx.Save(&toSave).Error; err != nil {
 				return
 			}
 		}
@@ -939,7 +939,7 @@ func (p *AddressProtos) Upsert(ctx context.Context, tx *gorm.DB, selects, omits 
 				*thing = *update
 				toSave = append(toSave, thing)
 			}
-			if err = statement.Save(&toSave).Error; err != nil {
+			if err = tx.Save(&toSave).Error; err != nil {
 				return
 			}
 		}
@@ -1153,7 +1153,7 @@ func (p *CommentProtos) Upsert(ctx context.Context, tx *gorm.DB, selects, omits 
 				*thing = *update
 				toSave = append(toSave, thing)
 			}
-			if err = statement.Save(&toSave).Error; err != nil {
+			if err = tx.Save(&toSave).Error; err != nil {
 				return
 			}
 		}
@@ -1360,7 +1360,7 @@ func (p *ProfileProtos) Upsert(ctx context.Context, tx *gorm.DB, selects, omits 
 				*thing = *update
 				toSave = append(toSave, thing)
 			}
-			if err = statement.Save(&toSave).Error; err != nil {
+			if err = tx.Save(&toSave).Error; err != nil {
 				return
 			}
 		}
