@@ -6,8 +6,8 @@ package example
 import (
 	context "context"
 	json "encoding/json"
+	gorm_jsonb "github.com/dariubs/gorm-jsonb"
 	uuid "github.com/google/uuid"
-	pgtype "github.com/jackc/pgtype"
 	pq "github.com/lib/pq"
 	lo "github.com/samber/lo"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -75,7 +75,7 @@ type UserGormModel struct {
 	OptionalScalarField *string `json:"optionalScalarField" fake:"skip"`
 
 	// @gotags: fake:"skip"
-	AStructpb *pgtype.JSONB `gorm:"type:jsonb" json:"aStructpb" fake:"skip"`
+	AStructpb gorm_jsonb.JSONB `gorm:"type:jsonb" json:"aStructpb" fake:"skip"`
 
 	CompanyId *string ``
 

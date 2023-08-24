@@ -98,9 +98,9 @@ func getModelFieldType(field *ModelField) string {
 		g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "time"})
 		return "*time.Time"
 	} else if field.IsStructPb {
-		g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "github.com/jackc/pgtype"})
+		g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "github.com/dariubs/gorm-jsonb"})
 		g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "encoding/json"})
-		return "*pgtype.JSONB"
+		return "gorm_jsonb.JSONB"
 	} else if field.IsMessage {
 		return getMessageGormModelFieldType(field.Field)
 	} else if field.Enum != nil {
