@@ -100,7 +100,7 @@ func getModelFieldType(field *ModelField) string {
 	} else if field.IsStructPb {
 		g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "github.com/dariubs/gorm-jsonb"})
 		g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "encoding/json"})
-		return "gormjsonb.JSONB"
+		return "gorm_jsonb.JSONB"
 	} else if field.IsMessage {
 		return getMessageGormModelFieldType(field.Field)
 	} else if field.Enum != nil {
