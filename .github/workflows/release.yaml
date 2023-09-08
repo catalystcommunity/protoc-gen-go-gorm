@@ -15,7 +15,7 @@ on:
       - 'go.sum'
 jobs:
   release:
-    if: github.event.pull_request.draft == false
+    if: github.event.pull_request.merged == true
     name: Make a Release
     runs-on: ubuntu-latest
     steps:
