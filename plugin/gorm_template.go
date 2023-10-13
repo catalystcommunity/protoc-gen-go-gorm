@@ -282,6 +282,12 @@ func (p *{{.GoIdent.GoName}}Protos) Upsert(ctx context.Context, tx *gorm.DB, sel
 			{{ end -}}
 			{{ end -}}
 			{{ end -}}
+			if len(omits) > 0 {
+				tx = tx.Omit(omits...)
+			}
+			if len(selects) > 0 {
+				tx = tx.Select(selects)
+			}
 			if err = tx.Save(&toSave).Error; err != nil {
 				return
             }
