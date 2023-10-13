@@ -459,15 +459,9 @@ func (p *UserProtos) Upsert(ctx context.Context, tx *gorm.DB, selects, omits []s
 				}
 			}
 		}
-		statement := tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations})
-		if len(selects) > 0 {
-			statement = statement.Select(selects)
-		}
-		if len(omits) > 0 {
-			statement = statement.Omit(omits...)
-		}
+		session := tx.Select(selects).Omit(omits...).Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations})
 		if len(creates) > 0 {
-			if err = statement.Create(&creates).Error; err != nil {
+			if err = session.Create(&creates).Error; err != nil {
 				return
 			}
 		}
@@ -496,13 +490,7 @@ func (p *UserProtos) Upsert(ctx context.Context, tx *gorm.DB, selects, omits []s
 					return
 				}
 			}
-			if len(omits) > 0 {
-				tx = tx.Omit(omits...)
-			}
-			if len(selects) > 0 {
-				tx = tx.Select(selects)
-			}
-			if err = tx.Save(&toSave).Error; err != nil {
+			if err = session.Save(&toSave).Error; err != nil {
 				return
 			}
 		}
@@ -690,15 +678,9 @@ func (p *CompanyProtos) Upsert(ctx context.Context, tx *gorm.DB, selects, omits 
 				}
 			}
 		}
-		statement := tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations})
-		if len(selects) > 0 {
-			statement = statement.Select(selects)
-		}
-		if len(omits) > 0 {
-			statement = statement.Omit(omits...)
-		}
+		session := tx.Select(selects).Omit(omits...).Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations})
 		if len(creates) > 0 {
-			if err = statement.Create(&creates).Error; err != nil {
+			if err = session.Create(&creates).Error; err != nil {
 				return
 			}
 		}
@@ -709,13 +691,7 @@ func (p *CompanyProtos) Upsert(ctx context.Context, tx *gorm.DB, selects, omits 
 				*thing = *update
 				toSave = append(toSave, thing)
 			}
-			if len(omits) > 0 {
-				tx = tx.Omit(omits...)
-			}
-			if len(selects) > 0 {
-				tx = tx.Select(selects)
-			}
-			if err = tx.Save(&toSave).Error; err != nil {
+			if err = session.Save(&toSave).Error; err != nil {
 				return
 			}
 		}
@@ -910,15 +886,9 @@ func (p *AddressProtos) Upsert(ctx context.Context, tx *gorm.DB, selects, omits 
 				}
 			}
 		}
-		statement := tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations})
-		if len(selects) > 0 {
-			statement = statement.Select(selects)
-		}
-		if len(omits) > 0 {
-			statement = statement.Omit(omits...)
-		}
+		session := tx.Select(selects).Omit(omits...).Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations})
 		if len(creates) > 0 {
-			if err = statement.Create(&creates).Error; err != nil {
+			if err = session.Create(&creates).Error; err != nil {
 				return
 			}
 		}
@@ -929,13 +899,7 @@ func (p *AddressProtos) Upsert(ctx context.Context, tx *gorm.DB, selects, omits 
 				*thing = *update
 				toSave = append(toSave, thing)
 			}
-			if len(omits) > 0 {
-				tx = tx.Omit(omits...)
-			}
-			if len(selects) > 0 {
-				tx = tx.Select(selects)
-			}
-			if err = tx.Save(&toSave).Error; err != nil {
+			if err = session.Save(&toSave).Error; err != nil {
 				return
 			}
 		}
@@ -1130,15 +1094,9 @@ func (p *CommentProtos) Upsert(ctx context.Context, tx *gorm.DB, selects, omits 
 				}
 			}
 		}
-		statement := tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations})
-		if len(selects) > 0 {
-			statement = statement.Select(selects)
-		}
-		if len(omits) > 0 {
-			statement = statement.Omit(omits...)
-		}
+		session := tx.Select(selects).Omit(omits...).Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations})
 		if len(creates) > 0 {
-			if err = statement.Create(&creates).Error; err != nil {
+			if err = session.Create(&creates).Error; err != nil {
 				return
 			}
 		}
@@ -1149,13 +1107,7 @@ func (p *CommentProtos) Upsert(ctx context.Context, tx *gorm.DB, selects, omits 
 				*thing = *update
 				toSave = append(toSave, thing)
 			}
-			if len(omits) > 0 {
-				tx = tx.Omit(omits...)
-			}
-			if len(selects) > 0 {
-				tx = tx.Select(selects)
-			}
-			if err = tx.Save(&toSave).Error; err != nil {
+			if err = session.Save(&toSave).Error; err != nil {
 				return
 			}
 		}
@@ -1343,15 +1295,9 @@ func (p *ProfileProtos) Upsert(ctx context.Context, tx *gorm.DB, selects, omits 
 				}
 			}
 		}
-		statement := tx.Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations})
-		if len(selects) > 0 {
-			statement = statement.Select(selects)
-		}
-		if len(omits) > 0 {
-			statement = statement.Omit(omits...)
-		}
+		session := tx.Select(selects).Omit(omits...).Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations})
 		if len(creates) > 0 {
-			if err = statement.Create(&creates).Error; err != nil {
+			if err = session.Create(&creates).Error; err != nil {
 				return
 			}
 		}
@@ -1362,13 +1308,7 @@ func (p *ProfileProtos) Upsert(ctx context.Context, tx *gorm.DB, selects, omits 
 				*thing = *update
 				toSave = append(toSave, thing)
 			}
-			if len(omits) > 0 {
-				tx = tx.Omit(omits...)
-			}
-			if len(selects) > 0 {
-				tx = tx.Select(selects)
-			}
-			if err = tx.Save(&toSave).Error; err != nil {
+			if err = session.Save(&toSave).Error; err != nil {
 				return
 			}
 		}
