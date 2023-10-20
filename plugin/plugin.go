@@ -578,7 +578,7 @@ func getFieldOptions(field *protogen.Field) *gorm.GormFieldOptions {
 	}
 
 	opts, ok := v.(*gorm.GormFieldOptions)
-	if !ok {
+	if !ok || opts == nil {
 		// return empty options
 		return &gorm.GormFieldOptions{}
 	}
