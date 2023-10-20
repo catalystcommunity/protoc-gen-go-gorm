@@ -114,6 +114,8 @@ message Address {
   string name = 4;
   // @gotags: fake:"skip"
   optional string user_id = 5;
+  // @gotags: fake:"skip"
+  Company companyBlob = 7 [(gorm.field).jsonb = true];
 }
 
 message Comment {

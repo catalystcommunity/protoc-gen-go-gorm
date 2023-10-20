@@ -250,5 +250,6 @@ func getCockroachdbAddress(t *testing.T) *Address {
 	var address *Address
 	err := gofakeit.Struct(&address)
 	require.NoError(t, err)
+	address.CompanyBlob = getCockroachdbCompany(t)
 	return address
 }

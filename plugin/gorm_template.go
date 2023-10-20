@@ -59,7 +59,7 @@ func (m *{{ .Model.Name }}) ToProto() (theProto *{{.GoIdent.GoName}}, err error)
 		theProto.{{ .GoName }} = timestamppb.New(*m.{{ .GoName }})
 	}
     {{ end }}
-    {{ else if .IsStructPb }}
+    {{ else if or .IsStructPb .IsJsonb }}
 	if m.{{ .GoName }} != nil {
 		var jsonBytes []byte
 		if jsonBytes, err = json.Marshal(m.{{ .GoName }}); err != nil {
@@ -159,7 +159,7 @@ func (p *{{.GoIdent.GoName}}) ToModel() (theModel *{{ .Model.Name }}, err error)
 		dateUTC := date.UTC()
 		theModel.{{ .GoName }} = &dateUTC
 	}
-    {{ else if .IsStructPb }}
+    {{ else if or .IsStructPb .IsJsonb }}
 	if p.{{ .GoName }} != nil {
 		var jsonBytes []byte
 		if jsonBytes, err = json.Marshal(p.{{ .GoName }}); err != nil {

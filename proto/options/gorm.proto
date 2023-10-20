@@ -131,4 +131,5 @@ message GormFieldOptions {
   string on_update = 9;
   string on_delete = 10;
   string time_format_override = 11;
+  bool jsonb = 12;
 }
