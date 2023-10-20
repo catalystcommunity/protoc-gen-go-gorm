@@ -87,7 +87,7 @@ func isStructPb(field *protogen.Field) bool {
 
 func hasJsonbOption(field *protogen.Field) bool {
 	opts := getFieldOptions(field)
-	return opts.Jsonb
+	return opts != nil && opts.Jsonb
 }
 
 func getModelFieldType(field *ModelField) string {
