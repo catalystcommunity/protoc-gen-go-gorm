@@ -561,19 +561,26 @@ func getMessageOptions(message *protogen.Message) *gorm.GormMessageOptions {
 }
 
 func getFieldOptions(field *protogen.Field) *gorm.GormFieldOptions {
-	options := field.Desc.Options().(*descriptorpb.FieldOptions)
-	if options == nil {
+	if field.Desc.Options() == nil {
+		// return empty options
+		return &gorm.GormFieldOptions{}
+	}
+	options, ok := field.Desc.Options().(*descriptorpb.FieldOptions)
+	if !ok {
+		// return empty options
 		return &gorm.GormFieldOptions{}
 	}
 
 	v := proto.GetExtension(options, gorm.E_Field)
 	if v == nil {
-		return nil
+		// return empty options
+		return &gorm.GormFieldOptions{}
 	}
 
 	opts, ok := v.(*gorm.GormFieldOptions)
 	if !ok {
-		return nil
+		// return empty options
+		return &gorm.GormFieldOptions{}
 	}
 	if opts.GetBelongsTo() != nil && opts.GetBelongsTo().Foreignkey == "" {
 		opts.GetBelongsTo().Foreignkey = fmt.Sprintf("%sId", field.GoName)
