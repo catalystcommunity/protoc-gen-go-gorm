@@ -118,6 +118,8 @@ message Address {
   optional string user_id = 5;
   // @gotags: fake:"skip"
   User user = 6 [(gorm.field).belongs_to = {}, (gorm.field).on_delete = "CASCADE"];
+  // @gotags: fake:"skip"
+  Company companyBlob = 7 [(gorm.field).jsonb = true];
 }
 
 message Comment {

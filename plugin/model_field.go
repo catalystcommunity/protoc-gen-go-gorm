@@ -17,6 +17,7 @@ type ModelField struct {
 	IsRepeated                     bool
 	IsTimestamp                    bool
 	IsStructPb                     bool
+	IsJsonb                        bool
 	IsOptional                     bool
 	Comments                       string
 	Ignore                         bool
@@ -41,6 +42,7 @@ func (f *ModelField) Parse() (err error) {
 	f.IsTimestamp = isTimestamp(f.Field)
 	f.IsOptional = isOptional(f.Field)
 	f.IsStructPb = isStructPb(f.Field)
+	f.IsJsonb = hasJsonbOption(f.Field)
 	f.Comments = f.Field.Comments.Leading.String() + f.Field.Comments.Trailing.String()
 	f.ModelType = getModelFieldType(f)
 	f.ModelSingularType = getModelFieldSingularType(f)
@@ -83,6 +85,11 @@ func isStructPb(field *protogen.Field) bool {
 	return field.Message != nil && field.Message.Desc.FullName() == "google.protobuf.Struct"
 }
 
+func hasJsonbOption(field *protogen.Field) bool {
+	opts := getFieldOptions(field)
+	return opts.Jsonb
+}
+
 func getModelFieldType(field *ModelField) string {
 	if field.IsTimestamp {
 		g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "time"})
@@ -97,7 +104,7 @@ func getModelFieldType(field *ModelField) string {
 		}
 		g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "time"})
 		return "*time.Time"
-	} else if field.IsStructPb {
+	} else if field.IsStructPb || field.IsJsonb {
 		g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "github.com/dariubs/gorm-jsonb"})
 		g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "encoding/json"})
 		return "gorm_jsonb.JSONB"

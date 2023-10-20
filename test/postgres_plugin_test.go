@@ -253,5 +253,6 @@ func getPostgresAddress(t *testing.T) *Address {
 	var address *Address
 	err := gofakeit.Struct(&address)
 	require.NoError(t, err)
+	address.CompanyBlob = getPostgresCompany(t)
 	return address
 }

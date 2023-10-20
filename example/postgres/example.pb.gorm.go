@@ -773,6 +773,9 @@ type AddressGormModel struct {
 
 	// @gotags: fake:"skip"
 	UserId *string `json:"userId" fake:"skip"`
+
+	// @gotags: fake:"skip"
+	CompanyBlob gorm_jsonb.JSONB `gorm:"type:jsonb" json:"companyBlob" fake:"skip"`
 }
 
 func (m *AddressGormModel) TableName() string {
@@ -823,6 +826,16 @@ func (m *AddressGormModel) ToProto() (theProto *Address, err error) {
 
 	theProto.UserId = m.UserId
 
+	if m.CompanyBlob != nil {
+		var jsonBytes []byte
+		if jsonBytes, err = json.Marshal(m.CompanyBlob); err != nil {
+			return
+		}
+		if err = json.Unmarshal(jsonBytes, &theProto.CompanyBlob); err != nil {
+			return
+		}
+	}
+
 	return
 }
 
@@ -845,6 +858,16 @@ func (p *Address) ToModel() (theModel *AddressGormModel, err error) {
 	theModel.Name = p.Name
 
 	theModel.UserId = p.UserId
+
+	if p.CompanyBlob != nil {
+		var jsonBytes []byte
+		if jsonBytes, err = json.Marshal(p.CompanyBlob); err != nil {
+			return
+		}
+		if err = json.Unmarshal(jsonBytes, &theModel.CompanyBlob); err != nil {
+			return
+		}
+	}
 
 	return
 }
