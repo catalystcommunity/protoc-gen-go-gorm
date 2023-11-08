@@ -38,9 +38,27 @@ func (s *CockroachdbPluginSuite) TestPlugin() {
 	user := getPopulatedCockroachdbUser(s.T())
 	expectedUser := proto.Clone(user)
 	users := UserProtos{user}
-	err := users.Upsert(context.Background(), cockroachdbDb, nil, nil, false)
+	models, err := users.Upsert(context.Background(), cockroachdbDb)
 	require.NoError(s.T(), err)
+	// get the user and verify no associations were saved
+	listedProtos := UserProtos{}
+	err = listedProtos.GetByIds(context.Background(), cockroachdbDb, []string{*users[0].Id})
+	require.NoError(s.T(), err)
+	require.Len(s.T(), listedProtos, 1)
+	listedProto := listedProtos[0]
+	require.Nil(s.T(), listedProto.Company)
+	require.Nil(s.T(), listedProto.CompanyTwo)
+	require.Nil(s.T(), listedProto.CompanyThree)
+	require.Nil(s.T(), listedProto.Address)
+	require.Nil(s.T(), listedProto.Comments)
+	require.Nil(s.T(), listedProto.Profiles)
+	upsertedModel := models[0]
 	upsertedUser := users[0]
+	// handle associations
+	session := cockroachdbDb.Session(&gorm.Session{})
+	// omit Company.* means it won't update any of the related object's data, only the relationship itself
+	err = session.Model(upsertedModel).Omit("Address.*").Association("Address").Replace(upsertedModel.Address)
+	require.NoError(s.T(), err)
 	// assert all objects have the appropriate ids
 	require.Equal(s.T(), upsertedUser.Id, upsertedUser.Address.UserId)
 	require.Equal(s.T(), upsertedUser.CompanyTwoId, *upsertedUser.CompanyTwo.Id)
@@ -68,7 +86,7 @@ func (s *CockroachdbPluginSuite) TestPlugin() {
 	expectedUpdatedUser.Id = users[0].Id
 	toUpdate := proto.Clone(expectedUpdatedUser)
 	updatedUsers := UserProtos{toUpdate.(*User)}
-	err = updatedUsers.Upsert(context.Background(), cockroachdbDb, nil, nil, false)
+	_, err = updatedUsers.Upsert(context.Background(), cockroachdbDb)
 	require.NoError(s.T(), err)
 	updatedUser := updatedUsers[0]
 	// assert all objects have the appropriate ids

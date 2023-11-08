@@ -64,7 +64,7 @@ message User {
   // @gotags: fake:"skip"
   Company company = 36 [(gorm.field).belongs_to = {}, (gorm.field).on_delete = "CASCADE"];
   // @gotags: fake:"skip"
-  string company_two_id = 37;
+  optional string company_two_id = 37;
   // @gotags: fake:"skip"
   Company company_two = 38 [(gorm.field).belongs_to = {}, (gorm.field).on_delete = "CASCADE"];
   // @gotags: fake:"skip"

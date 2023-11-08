@@ -38,7 +38,7 @@ func (s *PostgresPluginSuite) TestPlugin() {
 	user := getPostgresPopulatedUser(s.T())
 	expectedUser := proto.Clone(user)
 	users := UserProtos{user}
-	err := users.Upsert(context.Background(), postgresDb, nil, nil, false)
+	_, err := users.Upsert(context.Background(), postgresDb)
 	require.NoError(s.T(), err)
 	upsertedUser := users[0]
 	// assert all objects have the appropriate ids
@@ -68,7 +68,7 @@ func (s *PostgresPluginSuite) TestPlugin() {
 	expectedUpdatedUser.Id = users[0].Id
 	toUpdate := proto.Clone(expectedUpdatedUser)
 	updatedUsers := UserProtos{toUpdate.(*User)}
-	err = updatedUsers.Upsert(context.Background(), postgresDb, nil, nil, false)
+	_, err = updatedUsers.Upsert(context.Background(), postgresDb)
 	require.NoError(s.T(), err)
 	updatedUser := updatedUsers[0]
 	// assert all objects have the appropriate ids

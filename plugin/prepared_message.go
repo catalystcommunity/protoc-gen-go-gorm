@@ -11,10 +11,9 @@ type PreparedMessage struct {
 	*protogen.Message
 	*Model
 	PluginOptions
-	Options                 *gorm.GormMessageOptions
-	Ignore                  bool
-	Engine                  string
-	HasReplaceRelationships bool
+	Options *gorm.GormMessageOptions
+	Ignore  bool
+	Engine  string
 }
 
 func (pm *PreparedMessage) Parse() (err error) {
@@ -37,7 +36,6 @@ func (pm *PreparedMessage) Parse() (err error) {
 		return
 	}
 	pm.Model = model
-	pm.HasReplaceRelationships = pm.Model.HasReplaceRelationships
 	return
 }
 

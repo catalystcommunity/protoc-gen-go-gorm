@@ -23,7 +23,7 @@ type ModelField struct {
 	Ignore                         bool
 	Name                           string
 	ShouldGenerateBelongsToIdField bool
-	HasReplaceRelationships        bool // any relationships except belongs to needs replace calls
+	HasBelongsToRelationship       bool
 	TimeFormat                     string
 }
 
@@ -48,7 +48,7 @@ func (f *ModelField) Parse() (err error) {
 	f.ModelSingularType = getModelFieldSingularType(f)
 	f.Tag = getFieldTags(f)
 	f.ShouldGenerateBelongsToIdField = shouldGenerateBelongsToIdField(f)
-	f.HasReplaceRelationships = hasReplaceRelationships(f)
+	f.HasBelongsToRelationship = hasBelongsToRelationship(f)
 	f.TimeFormat = getTimeFormat(f)
 
 	return
@@ -132,8 +132,8 @@ func ignoreField(field *ModelField) bool {
 	return field.Options != nil && field.Options.Ignore
 }
 
-func hasReplaceRelationships(field *ModelField) bool {
-	return field.Options != nil && (field.Options.GetHasOne() != nil || field.Options.GetHasMany() != nil || field.Options.GetManyToMany() != nil)
+func hasBelongsToRelationship(field *ModelField) bool {
+	return field.Options != nil && field.Options.GetBelongsTo() != nil
 }
 
 func getTimeFormat(field *ModelField) string {
