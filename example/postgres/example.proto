@@ -64,11 +64,11 @@ message User {
   // @gotags: fake:"skip"
   Company company = 36 [(gorm.field).belongs_to = {}, (gorm.field).on_delete = "CASCADE"];
   // @gotags: fake:"skip"
-  string company_two_id = 37;
+  optional string company_two_id = 37;
   // @gotags: fake:"skip"
   Company company_two = 38 [(gorm.field).belongs_to = {}, (gorm.field).on_delete = "CASCADE"];
   // @gotags: fake:"skip"
-  string an_unexpected_id = 39;
+  optional string an_unexpected_id = 39;
   // @gotags: fake:"skip"
   Company company_three = 40 [(gorm.field).belongs_to = {foreignkey: "AnUnexpectedId"}, (gorm.field).on_delete = "CASCADE"];
   // @gotags: fake:"skip"
@@ -89,6 +89,8 @@ message User {
   string date = 48 [(gorm.field).time_format_override = "2006-01-02"];
   // @gotags: fake:"{date:2006-01-02}"
   optional string optional_date = 49 [(gorm.field).time_format_override = "2006-01-02"];
+  // @gotags: fake:"skip"
+  google.protobuf.Timestamp some_timestamp = 50;
 }
 
 message Company {
@@ -115,6 +117,8 @@ message Address {
   // @gotags: fake:"skip"
   optional string user_id = 5;
   // @gotags: fake:"skip"
+  User user = 6 [(gorm.field).belongs_to = {}, (gorm.field).on_delete = "CASCADE"];
+  // @gotags: fake:"skip"
   Company companyBlob = 7 [(gorm.field).jsonb = true];
 }
 
@@ -129,7 +133,7 @@ message Comment {
   // @gotags: fake:"{name}"
   string name = 4;
   // @gotags: fake:"skip"
-  optional string user_id = 5;
+  User user = 5 [(gorm.field).belongs_to = {}, (gorm.field).on_delete = "CASCADE"];
 }
 
 message Profile {

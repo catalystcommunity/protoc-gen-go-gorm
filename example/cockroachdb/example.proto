@@ -64,11 +64,11 @@ message User {
   // @gotags: fake:"skip"
   Company company = 36 [(gorm.field).belongs_to = {}, (gorm.field).on_delete = "CASCADE"];
   // @gotags: fake:"skip"
-  string company_two_id = 37;
+  optional string company_two_id = 37;
   // @gotags: fake:"skip"
   Company company_two = 38 [(gorm.field).belongs_to = {}, (gorm.field).on_delete = "CASCADE"];
   // @gotags: fake:"skip"
-  string an_unexpected_id = 39;
+  optional string an_unexpected_id = 39;
   // @gotags: fake:"skip"
   Company company_three = 40 [(gorm.field).belongs_to = {foreignkey: "AnUnexpectedId"}, (gorm.field).on_delete = "CASCADE"];
   // @gotags: fake:"skip"
@@ -133,7 +133,7 @@ message Comment {
   // @gotags: fake:"{name}"
   string name = 4;
   // @gotags: fake:"skip"
-  optional string user_id = 5;
+  User user = 5 [(gorm.field).belongs_to = {}, (gorm.field).on_delete = "CASCADE"];
 }
 
 message Profile {

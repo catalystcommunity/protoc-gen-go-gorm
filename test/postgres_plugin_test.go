@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"github.com/brianvoe/gofakeit/v6"
 	. "github.com/catalystsquad/protoc-gen-go-gorm/example/postgres"
+	"github.com/emirpasic/gods/sets/hashset"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/orlangure/gnomock"
 	postgres_preset "github.com/orlangure/gnomock/preset/postgres"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -34,79 +35,226 @@ func TestPostgresPluginSuite(t *testing.T) {
 	suite.Run(t, new(PostgresPluginSuite))
 }
 
-func (s *PostgresPluginSuite) TestPlugin() {
-	user := getPostgresPopulatedUser(s.T())
-	expectedUser := proto.Clone(user)
-	users := UserProtos{user}
-	err := users.Upsert(context.Background(), postgresDb, nil, nil, false)
+// TestList tests that the list function works as expected
+func (s *PostgresPluginSuite) TestList() {
+	// create profiles
+	profiles := getPostgresProfiles(s.T(), 3)
+	profileProtos := ProfileProtos(profiles)
+	_, err := profileProtos.Upsert(context.Background(), postgresDb)
 	require.NoError(s.T(), err)
-	upsertedUser := users[0]
-	// assert all objects have the appropriate ids
-	require.Equal(s.T(), upsertedUser.Id, upsertedUser.Address.UserId)
-	require.Equal(s.T(), upsertedUser.CompanyTwoId, *upsertedUser.CompanyTwo.Id)
-	require.Equal(s.T(), upsertedUser.AnUnexpectedId, *upsertedUser.CompanyThree.Id)
-	for _, comment := range upsertedUser.Comments {
-		require.Equal(s.T(), upsertedUser.Id, comment.UserId)
+
+	// list profiles
+	fetchedProfiles := ProfileProtos{}
+	err = fetchedProfiles.List(context.Background(), postgresDb, 10, 0, nil)
+	require.NoError(s.T(), err)
+
+	// assert equality, tests are run in parallel so filter down to the ids we know about
+	idsSet := hashset.New()
+	for _, profile := range profileProtos {
+		idsSet.Add(*profile.Id)
 	}
-	// assert equality ignoring generated ids and timestamps
-	assertPostgresProtosEquality(s.T(), expectedUser, upsertedUser,
-		protocmp.IgnoreFields(&Address{}, "id", "created_at", "updated_at", "user_id"),
-		protocmp.IgnoreFields(&Company{}, "id", "created_at", "updated_at"),
-		protocmp.IgnoreFields(&Comment{}, "id", "created_at", "updated_at", "user_id"),
-		protocmp.IgnoreFields(&Profile{}, "id", "created_at", "updated_at"),
-		protocmp.IgnoreFields(&User{}, "id", "created_at", "updated_at", "an_unexpected_id", "company_two_id"),
-	)
-	var firstUserModel *UserGormModel
-	var firstUser *User
-	err = postgresDb.Preload(clause.Associations).First(&firstUserModel).Error
-	require.NoError(s.T(), err)
-	firstUser, err = firstUserModel.ToProto()
-	require.NoError(s.T(), err)
-	assertPostgresProtosEquality(s.T(), users[0], firstUser)
-	// test update
-	expectedUpdatedUser := getPostgresPopulatedUser(s.T())
-	expectedUpdatedUser.Id = users[0].Id
-	toUpdate := proto.Clone(expectedUpdatedUser)
-	updatedUsers := UserProtos{toUpdate.(*User)}
-	err = updatedUsers.Upsert(context.Background(), postgresDb, nil, nil, false)
-	require.NoError(s.T(), err)
-	updatedUser := updatedUsers[0]
-	// assert all objects have the appropriate ids
-	require.Equal(s.T(), updatedUser.Id, updatedUser.Address.UserId)
-	require.Equal(s.T(), updatedUser.CompanyTwoId, *updatedUser.CompanyTwo.Id)
-	require.Equal(s.T(), updatedUser.AnUnexpectedId, *updatedUser.CompanyThree.Id)
-	for _, comment := range updatedUser.Comments {
-		require.Equal(s.T(), updatedUser.Id, comment.UserId)
+	actualProfiles := ProfileProtos{}
+	for _, profile := range fetchedProfiles {
+		if idsSet.Contains(*profile.Id) {
+			actualProfiles = append(actualProfiles, profile)
+		}
 	}
-	// assert equality ignoring generated ids and timestamps
-	assertPostgresProtosEquality(s.T(), expectedUpdatedUser, updatedUsers[0],
-		protocmp.IgnoreFields(&Address{}, "id", "created_at", "updated_at", "user_id"),
-		protocmp.IgnoreFields(&Company{}, "id", "created_at", "updated_at"),
-		protocmp.IgnoreFields(&Comment{}, "id", "created_at", "updated_at", "user_id"),
-		protocmp.IgnoreFields(&Profile{}, "id", "created_at", "updated_at"),
-		protocmp.IgnoreFields(&User{}, "id", "created_at", "updated_at", "an_unexpected_id", "company_two_id"),
+	assertPostgresProtosEquality(s.T(), profileProtos, actualProfiles,
+		protocmp.IgnoreFields(&Profile{}, "created_at", "updated_at"),
 	)
-	// test list
-	listedUsers := UserProtos{}
-	err = listedUsers.List(context.Background(), postgresDb, 100, 0, nil)
+}
+
+// TestGetByIds tests that the getByIds function works as expected
+func (s *PostgresPluginSuite) TestGetByIds() {
+	// create profiles
+	profiles := getPostgresProfiles(s.T(), 3)
+	profileProtos := ProfileProtos(profiles)
+	_, err := profileProtos.Upsert(context.Background(), postgresDb)
 	require.NoError(s.T(), err)
-	assertPostgresProtosEquality(s.T(), updatedUsers, listedUsers)
-	// test get by ids
-	ids := []string{*listedUsers[0].Id}
-	fetchedUsers := UserProtos{}
-	err = fetchedUsers.GetByIds(context.Background(), postgresDb, ids)
+
+	// get profiles
+	ids := lo.Map(profileProtos, func(item *Profile, index int) string {
+		return *item.Id
+	})
+	fetchedProfiles := ProfileProtos{}
+	err = fetchedProfiles.GetByIds(context.Background(), postgresDb, ids)
 	require.NoError(s.T(), err)
-	assertPostgresProtosEquality(s.T(), listedUsers, fetchedUsers)
-	// test delete
-	err = DeleteUserGormModels(context.Background(), postgresDb, ids)
+
+	// assert equality
+	assertPostgresProtosEquality(s.T(), profileProtos, fetchedProfiles,
+		protocmp.IgnoreFields(&Profile{}, "created_at", "updated_at"),
+	)
+}
+
+// TestBase tests that scalar fields are persisted as we expect them to be
+func (s *PostgresPluginSuite) TestBase() {
+	// create the user
+	user := getPostgresUser(s.T())
+	userProtos := UserProtos{user}
+	_, err := userProtos.Upsert(context.Background(), postgresDb)
 	require.NoError(s.T(), err)
-	err = listedUsers.List(context.Background(), postgresDb, 100, 0, nil)
+
+	// fetch the user
+	fetchedUserModel, err := getPostgresUserById(*user.Id)
 	require.NoError(s.T(), err)
-	require.Len(s.T(), listedUsers, 0)
+	fetchedUserProto, err := fetchedUserModel.ToProto()
+	require.NoError(s.T(), err)
+
+	// assert equality
+	assertPostgresProtosEquality(s.T(), userProtos[0], fetchedUserProto,
+		protocmp.IgnoreFields(&User{}, "created_at", "updated_at"),
+	)
+}
+
+// TestHasOneByObject tests that fields related with a has one relationship are persisted as we expect them to be when saved as an object
+func (s *PostgresPluginSuite) TestHasOneByObject() {
+	// create the user
+	user := getPostgresUser(s.T())
+	userProtos := UserProtos{user}
+	_, err := userProtos.Upsert(context.Background(), postgresDb)
+	require.NoError(s.T(), err)
+	expectedUser := userProtos[0]
+
+	// create the address
+	address := getPostgresAddress(s.T())
+	address.User = user
+	addressProtos := AddressProtos{address}
+	_, err = addressProtos.Upsert(context.Background(), postgresDb)
+	require.NoError(s.T(), err)
+
+	// set the address on the expected proto for comparison
+	expectedUser.Address = addressProtos[0]
+	expectedUser.Address.User = nil
+	expectedUser.Address.UserId = expectedUser.Id
+
+	// fetch the user
+	fetchedUserModel, err := getPostgresUserById(*user.Id)
+	require.NoError(s.T(), err)
+	fetchedUserProto, err := fetchedUserModel.ToProto()
+	require.NoError(s.T(), err)
+
+	// assert equality
+	assertPostgresProtosEquality(s.T(), userProtos[0], fetchedUserProto,
+		protocmp.IgnoreFields(&User{}, "created_at", "updated_at"),
+		protocmp.IgnoreFields(&Address{}, "created_at", "updated_at"),
+	)
+}
+
+// TestHasOneByObject tests that fields related with a has one relationship are persisted as we expect them to be when saved as an id
+func (s *PostgresPluginSuite) TestHasOneById() {
+	// create the user
+	user := getPostgresUser(s.T())
+	userProtos := UserProtos{user}
+	_, err := userProtos.Upsert(context.Background(), postgresDb)
+	require.NoError(s.T(), err)
+	expectedUser := userProtos[0]
+
+	// create the address
+	address := getPostgresAddress(s.T())
+	address.UserId = user.Id
+	addressProtos := AddressProtos{address}
+	_, err = addressProtos.Upsert(context.Background(), postgresDb)
+	require.NoError(s.T(), err)
+
+	// set the address on the expected proto for comparison
+	expectedUser.Address = addressProtos[0]
+	expectedUser.Address.User = nil
+	expectedUser.Address.UserId = expectedUser.Id
+
+	// fetch the user
+	fetchedUserModel, err := getPostgresUserById(*user.Id)
+	require.NoError(s.T(), err)
+	fetchedUserProto, err := fetchedUserModel.ToProto()
+	require.NoError(s.T(), err)
+
+	// assert equality
+	assertPostgresProtosEquality(s.T(), userProtos[0], fetchedUserProto,
+		protocmp.IgnoreFields(&User{}, "created_at", "updated_at"),
+		protocmp.IgnoreFields(&Address{}, "created_at", "updated_at"),
+	)
+}
+
+// TestHasMany tests that fields related with a has many relationship are persisted as we expect them to be
+func (s *PostgresPluginSuite) TestHasMany() {
+	// create the user
+	user := getPostgresUser(s.T())
+	userProtos := UserProtos{user}
+	_, err := userProtos.Upsert(context.Background(), postgresDb)
+	require.NoError(s.T(), err)
+	expectedUser := userProtos[0]
+
+	// create comments
+	comments := getPostgresComments(s.T(), 3)
+	for _, comment := range comments {
+		comment.User = user
+	}
+	commentProtos := CommentProtos(comments)
+	_, err = commentProtos.Upsert(context.Background(), postgresDb)
+	require.NoError(s.T(), err)
+
+	// set the comments on the expected proto for comparison
+	expectedUser.Comments = commentProtos
+	for _, comment := range expectedUser.Comments {
+		// nil user to avoid stack overflow
+		comment.User = nil
+	}
+
+	// fetch the user
+	fetchedUserModel, err := getPostgresUserById(*user.Id)
+	require.NoError(s.T(), err)
+	fetchedUserProto, err := fetchedUserModel.ToProto()
+	require.NoError(s.T(), err)
+
+	// assert equality
+	assertPostgresProtosEquality(s.T(), userProtos[0], fetchedUserProto,
+		protocmp.IgnoreFields(&User{}, "created_at", "updated_at"),
+		protocmp.IgnoreFields(&Comment{}, "created_at", "updated_at"),
+	)
+}
+
+// TestManyToMany tests that fields related with a many-to-many relationship are persisted as we expect them to be
+func (s *PostgresPluginSuite) TestManyToMany() {
+	// create the user
+	user := getPostgresUser(s.T())
+	userProtos := UserProtos{user}
+	_, err := userProtos.Upsert(context.Background(), postgresDb)
+	require.NoError(s.T(), err)
+	expectedUser := userProtos[0]
+
+	// create profiles
+	profiles := getPostgresProfiles(s.T(), 3)
+	profileProtos := ProfileProtos(profiles)
+	_, err = profileProtos.Upsert(context.Background(), postgresDb)
+	require.NoError(s.T(), err)
+
+	// associate profiles
+	session := postgresDb.Session(&gorm.Session{})
+	userModel, err := user.ToModel()
+	require.NoError(s.T(), err)
+	profileModels, err := profileProtos.ToModels()
+	require.NoError(s.T(), err)
+
+	err = session.Model(userModel).Association("Profiles").Replace(profileModels)
+	require.NoError(s.T(), err)
+
+	// set the profiles on the expected proto for comparison
+	expectedUser.Profiles = profiles
+
+	// fetch the user
+	fetchedUserModel, err := getPostgresUserById(*user.Id)
+	require.NoError(s.T(), err)
+	fetchedUserProto, err := fetchedUserModel.ToProto()
+	require.NoError(s.T(), err)
+
+	// assert equality
+	assertPostgresProtosEquality(s.T(), userProtos[0], fetchedUserProto,
+		protocmp.IgnoreFields(&User{}, "created_at", "updated_at"),
+		protocmp.IgnoreFields(&Profile{}, "created_at", "updated_at"),
+	)
 }
 
 func (s *PostgresPluginSuite) TestSliceTransformers() {
-	user := getPostgresPopulatedUser(s.T())
+	user := getPostgresUser(s.T())
 	users := UserProtos{user}
 	models, err := users.ToModels()
 	require.NoError(s.T(), err)
@@ -181,17 +329,10 @@ func assertPostgresProtosEquality(t *testing.T, expected, actual interface{}, op
 	)
 }
 
-func getPostgresPopulatedUser(t *testing.T) (thing *User) {
+func getPostgresUser(t *testing.T) (thing *User) {
 	thing = &User{}
-	companies := getPostgresCompanys(t, 3)
 	err := gofakeit.Struct(&thing)
 	require.NoError(t, err)
-	thing.Company = companies[0]
-	thing.CompanyTwo = companies[1]
-	thing.CompanyThree = companies[2]
-	thing.Address = getPostgresAddress(t)
-	thing.Comments = getRandomNumPostgresComments(t)
-	thing.Profiles = getRandomNumPostgresProfiles(t)
 	theMap := gofakeit.Map()
 	bytes, err := json.Marshal(theMap)
 	require.NoError(t, err)
@@ -255,4 +396,11 @@ func getPostgresAddress(t *testing.T) *Address {
 	require.NoError(t, err)
 	address.CompanyBlob = getPostgresCompany(t)
 	return address
+}
+
+func getPostgresUserById(id string) (*UserGormModel, error) {
+	session := postgresDb.Session(&gorm.Session{})
+	var user *UserGormModel
+	err := session.Preload(clause.Associations).First(&user, "id = ?", id).Error
+	return user, err
 }

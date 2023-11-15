@@ -173,6 +173,16 @@ func (p *{{.GoIdent.GoName}}) ToModel() (theModel *{{ .Model.Name }}, err error)
 	if theModel.{{ .GoName }}, err = p.{{ .GoName }}.ToModel(); err != nil {
 		return
 	}
+    {{ if .Options.BelongsTo }}
+    // if the object is present, the object's id overrides the existing id field value
+    if p.{{ .GoName }} != nil {
+	  {{ if .Options.BelongsTo.Foreignkey -}}
+      theModel.{{ .Options.BelongsTo.Foreignkey }} = p.{{ .GoName }}.Id
+      {{ else }}
+      theModel.{{ .GoName }}Id = p.{{ .GoName }}.Id
+      {{ end -}}
+	}
+    {{ end }}
 	{{ else if and .IsMessage .IsRepeated }}
 	if len(p.{{ .GoName }}) > 0 {
 		theModel.{{ .GoName }} = {{ .ModelType }}{}
@@ -231,65 +241,29 @@ func (m {{ .Model.Name }}s) GetByModelIds(ctx context.Context, tx *gorm.DB, prel
 	return
 }
 
-func (p *{{.GoIdent.GoName}}Protos) Upsert(ctx context.Context, tx *gorm.DB, selects, omits []string, fullSaveAssociations bool, preloads ...string) (err error) {
+// Upsert creates the protos using an on conflict clause to do updates. This function does not update *any* associations
+// use gorm's association mode functions to update associations as you see fit after calling upsert. See https://gorm.io/docs/associations.html#Replace-Associations
+func (p *{{.GoIdent.GoName}}Protos) Upsert(ctx context.Context, tx *gorm.DB) (models {{ .Model.Name }}s, err error) {
 	if p != nil {
-		omitMap := map[string]bool{}
-		for _, omit := range omits {
-			omitMap[omit] = true
-		}
-		creates, updates := []*{{ .Model.Name }}{}, []*{{ .Model.Name }}{}
-		nilUid := uuid.Nil.String()
-		var model *{{ .Model.Name }}
 		for _, proto := range *p {
-			if model, err = proto.ToModel(); err != nil {
-				return
-			} else {
-				if model.Id != nil && *model.Id != "" && *model.Id != nilUid {
-					updates = append(updates, model)
-				} else {
-					creates = append(creates, model)
-				}
+			if proto.Id == nil {
+				proto.Id = lo.ToPtr(uuid.New().String())
 			}
 		}
-		session := tx.Select(selects).Omit(omits...).Session(&gorm.Session{FullSaveAssociations: fullSaveAssociations})
-		if len(creates) > 0 {
-			if err = session.Create(&creates).Error; err != nil {
-				return
-			}
-		}
-		if len(updates) > 0 {
-			toSave := []*{{ .Model.Name }}{}
-			for _, update := range updates {
-				thing := &{{ .Model.Name }}{}
-				*thing = *update
-				toSave = append(toSave, thing)
-			}
-			{{ if .HasReplaceRelationships -}}
-			{{ range .Model.Fields -}}
-			{{ if or .Options.GetManyToMany .Options.GetHasMany .Options.GetHasOne -}}
-			if !omitMap["{{ .GoName }}"] {
-				clear{{ .GoName }}Statement := tx.Model(&updates).Association("{{ .GoName }}").Unscoped()
-				if err = clear{{ .GoName }}Statement.Clear(); err != nil {
-					return
-				}
-			}
-			{{ end -}}
-			{{ end -}}
-			{{ end -}}
-			if err = session.Save(&toSave).Error; err != nil {
-				return
-            }
-		}
-		models := {{ .Model.Name }}s{}
-		models = append(creates, updates...)
-		if err = models.GetByModelIds(ctx, tx, preloads...); err != nil {
+		models, err = p.ToModels()
+		if err != nil {
 			return
 		}
-		if len(models) > 0 {
-			*p, err = models.ToProtos()
-		} else {
-          *p = {{.GoIdent.GoName}}Protos{}
-        }
+        // create new session so the tx isn't modified
+		session := tx.Session(&gorm.Session{})
+		err = session.
+            // on conflict, update all fields
+			Clauses(clause.OnConflict{
+				UpdateAll: true,
+			}).
+            // exclude associations from upsert
+			Omit(clause.Associations).
+			Create(&models).Error
 	}
 	return
 }
