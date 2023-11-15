@@ -251,6 +251,43 @@ func (s *CockroachdbPluginSuite) TestManyToMany() {
 	)
 }
 
+// TestHasOneByObject tests that fields related with a has one relationship are persisted as we expect them to be when saved as an id
+func (s *CockroachdbPluginSuite) TestUpdate() {
+	// create the user
+	user := getCockroachdbUser(s.T())
+	userProtos := UserProtos{user}
+	_, err := userProtos.Upsert(context.Background(), cockroachdbDb)
+	require.NoError(s.T(), err)
+	expectedUser := userProtos[0]
+
+	// create the address
+	address := getCockroachdbAddress(s.T())
+	address.UserId = user.Id
+	addressProtos := AddressProtos{address}
+	_, err = addressProtos.Upsert(context.Background(), cockroachdbDb)
+	require.NoError(s.T(), err)
+
+	// set the address on the expected proto for comparison
+	expectedUser.Address = addressProtos[0]
+	expectedUser.Address.User = nil
+	expectedUser.Address.UserId = expectedUser.Id
+
+	// modify the user and their address
+	expectedUser.AString = gofakeit.HackerPhrase()
+	expectedUser.Address.Name = gofakeit.HackerPhrase()
+	updatedUserProtos := UserProtos{expectedUser}
+	_, err = updatedUserProtos.Upsert(context.Background(), cockroachdbDb)
+
+	// fetch the user
+	fetchedUserModel, err := getUserById(*user.Id)
+	require.NoError(s.T(), err)
+	fetchedUserProto, err := fetchedUserModel.ToProto()
+	require.NoError(s.T(), err)
+
+	require.Equal(s.T(), expectedUser.AString, fetchedUserModel.AString)
+	require.NotEqual(s.T(), expectedUser.Address.Name, fetchedUserProto.Address.Name)
+}
+
 func (s *CockroachdbPluginSuite) TestSliceTransformers() {
 	user := getCockroachdbUser(s.T())
 	users := UserProtos{user}
