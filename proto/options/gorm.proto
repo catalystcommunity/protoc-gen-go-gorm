@@ -120,12 +120,10 @@ message ManyToManyOptions {
 
 message GormFieldOptions {
   string gorm_tag = 1;
-  oneof association {
-    HasOneOptions has_one = 3;
-    BelongsToOptions belongs_to = 4;
-    HasManyOptions has_many = 5;
-    ManyToManyOptions many_to_many = 6;
-  }
+  HasOneOptions has_one = 3;
+  BelongsToOptions belongs_to = 4;
+  HasManyOptions has_many = 5;
+  ManyToManyOptions many_to_many = 6;
   bool ignore = 7;
   bool enum_as_string = 8;
   string on_update = 9;
