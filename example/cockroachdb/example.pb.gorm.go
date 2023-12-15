@@ -911,7 +911,7 @@ func Upsert[P Protos, M Models](ctx context.Context, db *gorm.DB, protos interfa
 // Delete is a generic function that will delete any of the generated protos. A function may be provided to be executed
 // during the transaction. The function is executed after the delete. If the function returns an error, the transaction
 // will be rolled back.
-func Delete[M Models](ctx context.Context, db *gorm.DB, ids []string, txFunc func(ctx context.Context, tx *gorm.DB, ids []string, models []M) error) error {
+func Delete[M Models](ctx context.Context, db *gorm.DB, ids []string, txFunc func(ctx context.Context, tx *gorm.DB, ids []string) error) error {
 	if len(ids) > 0 {
 		return crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
 			models := []M{}
@@ -921,7 +921,7 @@ func Delete[M Models](ctx context.Context, db *gorm.DB, ids []string, txFunc fun
 			}
 			// if a txFunc is specified, execute it
 			if txFunc != nil {
-				txErr = txFunc(ctx, tx, ids, models)
+				txErr = txFunc(ctx, tx, ids)
 				if txErr != nil {
 					return txErr
 				}
