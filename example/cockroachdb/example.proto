@@ -3,7 +3,7 @@ syntax = "proto3";
 package example.cockroachdb;
 
 option go_package = "github.com/catalystsquad/protoc-gen-go-gorm/example;example";
-
+option (gorm.file_opts) = {generate: true};
 import "google/protobuf/timestamp.proto";
 import "options/gorm.proto";
 import "google/protobuf/struct.proto";
