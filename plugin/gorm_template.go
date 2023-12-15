@@ -3,8 +3,6 @@ package plugin
 import "text/template"
 
 var messageTemplate = template.Must(template.New("message").Funcs(templateFuncs).Parse(`
-type {{ .Model.Name }}s []*{{ .Model.Name }}
-type {{.GoIdent.GoName}}Protos []*{{.GoIdent.GoName}}
 type {{ .Model.Name }} struct {
 	{{- range .Model.Fields }}
     {{ if .ShouldGenerateBelongsToIdField }}
@@ -17,30 +15,6 @@ type {{ .Model.Name }} struct {
 
 func (m *{{ .Model.Name }}) TableName() string {
 	return "{{ .Model.TableName }}"
-}
-
-func (m {{ .Model.Name }}s) ToProtos() (protos {{.GoIdent.GoName}}Protos, err error) {
-	protos = {{.GoIdent.GoName}}Protos{}
-	for _, model := range m {
-		var proto *{{.GoIdent.GoName}}
-		if proto, err = model.ToProto(); err != nil {
-			return
-		}
-		protos = append(protos, proto)
-	}
-	return
-}
-
-func (p {{.GoIdent.GoName}}Protos) ToModels() (models {{ .Model.Name }}s, err error) {
-	models = {{ .Model.Name }}s{}
-	for _, proto := range p {
-		var model *{{ .Model.Name }}
-		if model, err = proto.ToModel(); err != nil {
-			return
-		}
-		models = append(models, model)
-	}
-	return
 }
 
 func (m *{{ .Model.Name }}) ToProto() (theProto *{{.GoIdent.GoName}}, err error) {
@@ -120,6 +94,14 @@ func (m *{{ .Model.Name }}) ToProto() (theProto *{{.GoIdent.GoName}}, err error)
     {{ end }}
 	{{ end }}
 	return
+}
+
+func (p *{{.GoIdent.GoName}}) GetProtoId() *string {
+	return p.Id
+}
+
+func (p *{{.GoIdent.GoName}}) SetProtoId(id string) {
+	p.Id = lo.ToPtr(id)
 }
 
 func (p *{{.GoIdent.GoName}}) ToModel() (theModel *{{ .Model.Name }}, err error) {
@@ -222,95 +204,5 @@ func (p *{{.GoIdent.GoName}}) ToModel() (theModel *{{ .Model.Name }}, err error)
     {{ end }}
 	{{ end }}
 	return
-}
-
-func (m {{ .Model.Name }}s) GetByModelIds(ctx context.Context, tx *gorm.DB, preloads ...string) (err error) {
-	ids := []string{}
-	for _, model := range m {
-		if model.Id != nil {
-			ids = append(ids, *model.Id)
-		}
-	}
-	if len(ids) > 0 {
-		statement := tx.Preload(clause.Associations)
-		for _, preload := range preloads {
-			statement = statement.Preload(preload)
-		}
-		err = statement.Where("id in ?", ids).Find(&m).Error
-	}
-	return
-}
-
-// Upsert creates the protos using an on conflict clause to do updates. This function does not update *any* associations
-// use gorm's association mode functions to update associations as you see fit after calling upsert. See https://gorm.io/docs/associations.html#Replace-Associations
-func (p *{{.GoIdent.GoName}}Protos) Upsert(ctx context.Context, tx *gorm.DB) (models {{ .Model.Name }}s, err error) {
-	if p != nil {
-		for _, proto := range *p {
-			if proto.Id == nil {
-				proto.Id = lo.ToPtr(uuid.New().String())
-			}
-		}
-		models, err = p.ToModels()
-		if err != nil {
-			return
-		}
-        // create new session so the tx isn't modified
-		session := tx.Session(&gorm.Session{})
-		err = session.
-            // on conflict, update all fields
-			Clauses(clause.OnConflict{
-				UpdateAll: true,
-			}).
-            // exclude associations from upsert
-			Omit(clause.Associations).
-			Create(&models).Error
-	}
-	return
-}
-
-func (p *{{.GoIdent.GoName}}Protos) List(ctx context.Context, tx *gorm.DB, limit, offset int, order interface{}, preloads ...string) (err error) {
-	if p != nil {
-		var models {{ .Model.Name }}s
-		statement := tx.Preload(clause.Associations).Limit(limit).Offset(offset)
-		for _, preload := range preloads {
-		  statement = statement.Preload(preload)
-		}
-		if order != nil {
-			statement = statement.Order(order)
-		}
-		if err = statement.Find(&models).Error; err != nil {
-		  return
-		}
-		if len(models) > 0 {
-			*p, err = models.ToProtos()
-		} else {
-          *p = {{.GoIdent.GoName}}Protos{}
-        }
-	}
-	return
-}
-
-func (p *{{.GoIdent.GoName}}Protos) GetByIds(ctx context.Context, tx *gorm.DB, ids []string, preloads ...string) (err error) {
-	if p != nil {
-		var models {{ .Model.Name }}s
-		statement := tx.Preload(clause.Associations)
-		for _, preload := range preloads {
-		  statement = statement.Preload(preload)
-		}
-		if err = statement.Where("id in ?", ids).Find(&models).Error; err != nil {
-		  return
-		}
-		if len(models) > 0 {
-			*p, err = models.ToProtos()
-		} else {
-          *p = {{.GoIdent.GoName}}Protos{}
-        }
-	}
-	return
-}
-
-func Delete{{ .Model.Name }}s(ctx context.Context, tx *gorm.DB, ids []string) error {
-    statement := tx.Where("id in ?", ids)
-	return statement.Delete(&{{ .Model.Name }}{}).Error	
 }
 `))

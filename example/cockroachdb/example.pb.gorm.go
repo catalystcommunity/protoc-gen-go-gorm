@@ -6,6 +6,7 @@ package example
 import (
 	context "context"
 	json "encoding/json"
+	crdbgorm "github.com/cockroachdb/cockroach-go/v2/crdb/crdbgorm"
 	gorm_jsonb "github.com/dariubs/gorm-jsonb"
 	uuid "github.com/google/uuid"
 	pq "github.com/lib/pq"
@@ -16,8 +17,6 @@ import (
 	time "time"
 )
 
-type UserGormModels []*UserGormModel
-type UserProtos []*User
 type UserGormModel struct {
 
 	// @gotags: fake:"skip"
@@ -77,7 +76,8 @@ type UserGormModel struct {
 	// @gotags: fake:"skip"
 	AStructpb gorm_jsonb.JSONB `gorm:"type:jsonb" json:"aStructpb" fake:"skip"`
 
-	CompanyId *string ``
+	// @gotags: fake:"skip"
+	CompanyId *string `json:"companyId" fake:"skip"`
 
 	// @gotags: fake:"skip"
 	Company *CompanyGormModel `gorm:"foreignKey:CompanyId;references:Id;constraint:OnDelete:CASCADE;" json:"company" fake:"skip"`
@@ -127,30 +127,6 @@ type UserGormModel struct {
 
 func (m *UserGormModel) TableName() string {
 	return "users"
-}
-
-func (m UserGormModels) ToProtos() (protos UserProtos, err error) {
-	protos = UserProtos{}
-	for _, model := range m {
-		var proto *User
-		if proto, err = model.ToProto(); err != nil {
-			return
-		}
-		protos = append(protos, proto)
-	}
-	return
-}
-
-func (p UserProtos) ToModels() (models UserGormModels, err error) {
-	models = UserGormModels{}
-	for _, proto := range p {
-		var model *UserGormModel
-		if model, err = proto.ToModel(); err != nil {
-			return
-		}
-		models = append(models, model)
-	}
-	return
 }
 
 func (m *UserGormModel) ToProto() (theProto *User, err error) {
@@ -208,6 +184,8 @@ func (m *UserGormModel) ToProto() (theProto *User, err error) {
 			return
 		}
 	}
+
+	theProto.CompanyId = m.CompanyId
 
 	if theProto.Company, err = m.Company.ToProto(); err != nil {
 		return
@@ -286,6 +264,14 @@ func (m *UserGormModel) ToProto() (theProto *User, err error) {
 	return
 }
 
+func (p *User) GetProtoId() *string {
+	return p.Id
+}
+
+func (p *User) SetProtoId(id string) {
+	p.Id = lo.ToPtr(id)
+}
+
 func (p *User) ToModel() (theModel *UserGormModel, err error) {
 	if p == nil {
 		return
@@ -345,6 +331,8 @@ func (p *User) ToModel() (theModel *UserGormModel, err error) {
 			return
 		}
 	}
+
+	theModel.CompanyId = p.CompanyId
 
 	if theModel.Company, err = p.Company.ToModel(); err != nil {
 		return
@@ -448,98 +436,6 @@ func (p *User) ToModel() (theModel *UserGormModel, err error) {
 	return
 }
 
-func (m UserGormModels) GetByModelIds(ctx context.Context, tx *gorm.DB, preloads ...string) (err error) {
-	ids := []string{}
-	for _, model := range m {
-		if model.Id != nil {
-			ids = append(ids, *model.Id)
-		}
-	}
-	if len(ids) > 0 {
-		statement := tx.Preload(clause.Associations)
-		for _, preload := range preloads {
-			statement = statement.Preload(preload)
-		}
-		err = statement.Where("id in ?", ids).Find(&m).Error
-	}
-	return
-}
-
-// Upsert creates the protos using an on conflict clause to do updates. This function does not update *any* associations
-// use gorm's association mode functions to update associations as you see fit after calling upsert. See https://gorm.io/docs/associations.html#Replace-Associations
-func (p *UserProtos) Upsert(ctx context.Context, tx *gorm.DB) (models UserGormModels, err error) {
-	if p != nil {
-		for _, proto := range *p {
-			if proto.Id == nil {
-				proto.Id = lo.ToPtr(uuid.New().String())
-			}
-		}
-		models, err = p.ToModels()
-		if err != nil {
-			return
-		}
-		// create new session so the tx isn't modified
-		session := tx.Session(&gorm.Session{})
-		err = session.
-			// on conflict, update all fields
-			Clauses(clause.OnConflict{
-				UpdateAll: true,
-			}).
-			// exclude associations from upsert
-			Omit(clause.Associations).
-			Create(&models).Error
-	}
-	return
-}
-
-func (p *UserProtos) List(ctx context.Context, tx *gorm.DB, limit, offset int, order interface{}, preloads ...string) (err error) {
-	if p != nil {
-		var models UserGormModels
-		statement := tx.Preload(clause.Associations).Limit(limit).Offset(offset)
-		for _, preload := range preloads {
-			statement = statement.Preload(preload)
-		}
-		if order != nil {
-			statement = statement.Order(order)
-		}
-		if err = statement.Find(&models).Error; err != nil {
-			return
-		}
-		if len(models) > 0 {
-			*p, err = models.ToProtos()
-		} else {
-			*p = UserProtos{}
-		}
-	}
-	return
-}
-
-func (p *UserProtos) GetByIds(ctx context.Context, tx *gorm.DB, ids []string, preloads ...string) (err error) {
-	if p != nil {
-		var models UserGormModels
-		statement := tx.Preload(clause.Associations)
-		for _, preload := range preloads {
-			statement = statement.Preload(preload)
-		}
-		if err = statement.Where("id in ?", ids).Find(&models).Error; err != nil {
-			return
-		}
-		if len(models) > 0 {
-			*p, err = models.ToProtos()
-		} else {
-			*p = UserProtos{}
-		}
-	}
-	return
-}
-
-func DeleteUserGormModels(ctx context.Context, tx *gorm.DB, ids []string) error {
-	statement := tx.Where("id in ?", ids)
-	return statement.Delete(&UserGormModel{}).Error
-}
-
-type CompanyGormModels []*CompanyGormModel
-type CompanyProtos []*Company
 type CompanyGormModel struct {
 
 	// @gotags: fake:"skip"
@@ -557,30 +453,6 @@ type CompanyGormModel struct {
 
 func (m *CompanyGormModel) TableName() string {
 	return "companies"
-}
-
-func (m CompanyGormModels) ToProtos() (protos CompanyProtos, err error) {
-	protos = CompanyProtos{}
-	for _, model := range m {
-		var proto *Company
-		if proto, err = model.ToProto(); err != nil {
-			return
-		}
-		protos = append(protos, proto)
-	}
-	return
-}
-
-func (p CompanyProtos) ToModels() (models CompanyGormModels, err error) {
-	models = CompanyGormModels{}
-	for _, proto := range p {
-		var model *CompanyGormModel
-		if model, err = proto.ToModel(); err != nil {
-			return
-		}
-		models = append(models, model)
-	}
-	return
 }
 
 func (m *CompanyGormModel) ToProto() (theProto *Company, err error) {
@@ -604,6 +476,14 @@ func (m *CompanyGormModel) ToProto() (theProto *Company, err error) {
 	return
 }
 
+func (p *Company) GetProtoId() *string {
+	return p.Id
+}
+
+func (p *Company) SetProtoId(id string) {
+	p.Id = lo.ToPtr(id)
+}
+
 func (p *Company) ToModel() (theModel *CompanyGormModel, err error) {
 	if p == nil {
 		return
@@ -625,98 +505,6 @@ func (p *Company) ToModel() (theModel *CompanyGormModel, err error) {
 	return
 }
 
-func (m CompanyGormModels) GetByModelIds(ctx context.Context, tx *gorm.DB, preloads ...string) (err error) {
-	ids := []string{}
-	for _, model := range m {
-		if model.Id != nil {
-			ids = append(ids, *model.Id)
-		}
-	}
-	if len(ids) > 0 {
-		statement := tx.Preload(clause.Associations)
-		for _, preload := range preloads {
-			statement = statement.Preload(preload)
-		}
-		err = statement.Where("id in ?", ids).Find(&m).Error
-	}
-	return
-}
-
-// Upsert creates the protos using an on conflict clause to do updates. This function does not update *any* associations
-// use gorm's association mode functions to update associations as you see fit after calling upsert. See https://gorm.io/docs/associations.html#Replace-Associations
-func (p *CompanyProtos) Upsert(ctx context.Context, tx *gorm.DB) (models CompanyGormModels, err error) {
-	if p != nil {
-		for _, proto := range *p {
-			if proto.Id == nil {
-				proto.Id = lo.ToPtr(uuid.New().String())
-			}
-		}
-		models, err = p.ToModels()
-		if err != nil {
-			return
-		}
-		// create new session so the tx isn't modified
-		session := tx.Session(&gorm.Session{})
-		err = session.
-			// on conflict, update all fields
-			Clauses(clause.OnConflict{
-				UpdateAll: true,
-			}).
-			// exclude associations from upsert
-			Omit(clause.Associations).
-			Create(&models).Error
-	}
-	return
-}
-
-func (p *CompanyProtos) List(ctx context.Context, tx *gorm.DB, limit, offset int, order interface{}, preloads ...string) (err error) {
-	if p != nil {
-		var models CompanyGormModels
-		statement := tx.Preload(clause.Associations).Limit(limit).Offset(offset)
-		for _, preload := range preloads {
-			statement = statement.Preload(preload)
-		}
-		if order != nil {
-			statement = statement.Order(order)
-		}
-		if err = statement.Find(&models).Error; err != nil {
-			return
-		}
-		if len(models) > 0 {
-			*p, err = models.ToProtos()
-		} else {
-			*p = CompanyProtos{}
-		}
-	}
-	return
-}
-
-func (p *CompanyProtos) GetByIds(ctx context.Context, tx *gorm.DB, ids []string, preloads ...string) (err error) {
-	if p != nil {
-		var models CompanyGormModels
-		statement := tx.Preload(clause.Associations)
-		for _, preload := range preloads {
-			statement = statement.Preload(preload)
-		}
-		if err = statement.Where("id in ?", ids).Find(&models).Error; err != nil {
-			return
-		}
-		if len(models) > 0 {
-			*p, err = models.ToProtos()
-		} else {
-			*p = CompanyProtos{}
-		}
-	}
-	return
-}
-
-func DeleteCompanyGormModels(ctx context.Context, tx *gorm.DB, ids []string) error {
-	statement := tx.Where("id in ?", ids)
-	return statement.Delete(&CompanyGormModel{}).Error
-}
-
-type AddressGormModels []*AddressGormModel
-type AddressProtos []*Address
 type AddressGormModel struct {
 
 	// @gotags: fake:"skip"
@@ -743,30 +531,6 @@ type AddressGormModel struct {
 
 func (m *AddressGormModel) TableName() string {
 	return "addresses"
-}
-
-func (m AddressGormModels) ToProtos() (protos AddressProtos, err error) {
-	protos = AddressProtos{}
-	for _, model := range m {
-		var proto *Address
-		if proto, err = model.ToProto(); err != nil {
-			return
-		}
-		protos = append(protos, proto)
-	}
-	return
-}
-
-func (p AddressProtos) ToModels() (models AddressGormModels, err error) {
-	models = AddressGormModels{}
-	for _, proto := range p {
-		var model *AddressGormModel
-		if model, err = proto.ToModel(); err != nil {
-			return
-		}
-		models = append(models, model)
-	}
-	return
 }
 
 func (m *AddressGormModel) ToProto() (theProto *Address, err error) {
@@ -804,6 +568,14 @@ func (m *AddressGormModel) ToProto() (theProto *Address, err error) {
 	}
 
 	return
+}
+
+func (p *Address) GetProtoId() *string {
+	return p.Id
+}
+
+func (p *Address) SetProtoId(id string) {
+	p.Id = lo.ToPtr(id)
 }
 
 func (p *Address) ToModel() (theModel *AddressGormModel, err error) {
@@ -848,98 +620,6 @@ func (p *Address) ToModel() (theModel *AddressGormModel, err error) {
 	return
 }
 
-func (m AddressGormModels) GetByModelIds(ctx context.Context, tx *gorm.DB, preloads ...string) (err error) {
-	ids := []string{}
-	for _, model := range m {
-		if model.Id != nil {
-			ids = append(ids, *model.Id)
-		}
-	}
-	if len(ids) > 0 {
-		statement := tx.Preload(clause.Associations)
-		for _, preload := range preloads {
-			statement = statement.Preload(preload)
-		}
-		err = statement.Where("id in ?", ids).Find(&m).Error
-	}
-	return
-}
-
-// Upsert creates the protos using an on conflict clause to do updates. This function does not update *any* associations
-// use gorm's association mode functions to update associations as you see fit after calling upsert. See https://gorm.io/docs/associations.html#Replace-Associations
-func (p *AddressProtos) Upsert(ctx context.Context, tx *gorm.DB) (models AddressGormModels, err error) {
-	if p != nil {
-		for _, proto := range *p {
-			if proto.Id == nil {
-				proto.Id = lo.ToPtr(uuid.New().String())
-			}
-		}
-		models, err = p.ToModels()
-		if err != nil {
-			return
-		}
-		// create new session so the tx isn't modified
-		session := tx.Session(&gorm.Session{})
-		err = session.
-			// on conflict, update all fields
-			Clauses(clause.OnConflict{
-				UpdateAll: true,
-			}).
-			// exclude associations from upsert
-			Omit(clause.Associations).
-			Create(&models).Error
-	}
-	return
-}
-
-func (p *AddressProtos) List(ctx context.Context, tx *gorm.DB, limit, offset int, order interface{}, preloads ...string) (err error) {
-	if p != nil {
-		var models AddressGormModels
-		statement := tx.Preload(clause.Associations).Limit(limit).Offset(offset)
-		for _, preload := range preloads {
-			statement = statement.Preload(preload)
-		}
-		if order != nil {
-			statement = statement.Order(order)
-		}
-		if err = statement.Find(&models).Error; err != nil {
-			return
-		}
-		if len(models) > 0 {
-			*p, err = models.ToProtos()
-		} else {
-			*p = AddressProtos{}
-		}
-	}
-	return
-}
-
-func (p *AddressProtos) GetByIds(ctx context.Context, tx *gorm.DB, ids []string, preloads ...string) (err error) {
-	if p != nil {
-		var models AddressGormModels
-		statement := tx.Preload(clause.Associations)
-		for _, preload := range preloads {
-			statement = statement.Preload(preload)
-		}
-		if err = statement.Where("id in ?", ids).Find(&models).Error; err != nil {
-			return
-		}
-		if len(models) > 0 {
-			*p, err = models.ToProtos()
-		} else {
-			*p = AddressProtos{}
-		}
-	}
-	return
-}
-
-func DeleteAddressGormModels(ctx context.Context, tx *gorm.DB, ids []string) error {
-	statement := tx.Where("id in ?", ids)
-	return statement.Delete(&AddressGormModel{}).Error
-}
-
-type CommentGormModels []*CommentGormModel
-type CommentProtos []*Comment
 type CommentGormModel struct {
 
 	// @gotags: fake:"skip"
@@ -954,7 +634,8 @@ type CommentGormModel struct {
 	// @gotags: fake:"{name}"
 	Name string `json:"name" fake:"{name}"`
 
-	UserId *string ``
+	// @gotags: fake:"skip"
+	UserId *string `json:"userId" fake:"skip"`
 
 	// @gotags: fake:"skip"
 	User *UserGormModel `gorm:"foreignKey:UserId;references:Id;constraint:OnDelete:CASCADE;" json:"user" fake:"skip"`
@@ -962,30 +643,6 @@ type CommentGormModel struct {
 
 func (m *CommentGormModel) TableName() string {
 	return "comments"
-}
-
-func (m CommentGormModels) ToProtos() (protos CommentProtos, err error) {
-	protos = CommentProtos{}
-	for _, model := range m {
-		var proto *Comment
-		if proto, err = model.ToProto(); err != nil {
-			return
-		}
-		protos = append(protos, proto)
-	}
-	return
-}
-
-func (p CommentProtos) ToModels() (models CommentGormModels, err error) {
-	models = CommentGormModels{}
-	for _, proto := range p {
-		var model *CommentGormModel
-		if model, err = proto.ToModel(); err != nil {
-			return
-		}
-		models = append(models, model)
-	}
-	return
 }
 
 func (m *CommentGormModel) ToProto() (theProto *Comment, err error) {
@@ -1006,11 +663,21 @@ func (m *CommentGormModel) ToProto() (theProto *Comment, err error) {
 
 	theProto.Name = m.Name
 
+	theProto.UserId = m.UserId
+
 	if theProto.User, err = m.User.ToProto(); err != nil {
 		return
 	}
 
 	return
+}
+
+func (p *Comment) GetProtoId() *string {
+	return p.Id
+}
+
+func (p *Comment) SetProtoId(id string) {
+	p.Id = lo.ToPtr(id)
 }
 
 func (p *Comment) ToModel() (theModel *CommentGormModel, err error) {
@@ -1031,6 +698,8 @@ func (p *Comment) ToModel() (theModel *CommentGormModel, err error) {
 
 	theModel.Name = p.Name
 
+	theModel.UserId = p.UserId
+
 	if theModel.User, err = p.User.ToModel(); err != nil {
 		return
 	}
@@ -1043,98 +712,6 @@ func (p *Comment) ToModel() (theModel *CommentGormModel, err error) {
 	return
 }
 
-func (m CommentGormModels) GetByModelIds(ctx context.Context, tx *gorm.DB, preloads ...string) (err error) {
-	ids := []string{}
-	for _, model := range m {
-		if model.Id != nil {
-			ids = append(ids, *model.Id)
-		}
-	}
-	if len(ids) > 0 {
-		statement := tx.Preload(clause.Associations)
-		for _, preload := range preloads {
-			statement = statement.Preload(preload)
-		}
-		err = statement.Where("id in ?", ids).Find(&m).Error
-	}
-	return
-}
-
-// Upsert creates the protos using an on conflict clause to do updates. This function does not update *any* associations
-// use gorm's association mode functions to update associations as you see fit after calling upsert. See https://gorm.io/docs/associations.html#Replace-Associations
-func (p *CommentProtos) Upsert(ctx context.Context, tx *gorm.DB) (models CommentGormModels, err error) {
-	if p != nil {
-		for _, proto := range *p {
-			if proto.Id == nil {
-				proto.Id = lo.ToPtr(uuid.New().String())
-			}
-		}
-		models, err = p.ToModels()
-		if err != nil {
-			return
-		}
-		// create new session so the tx isn't modified
-		session := tx.Session(&gorm.Session{})
-		err = session.
-			// on conflict, update all fields
-			Clauses(clause.OnConflict{
-				UpdateAll: true,
-			}).
-			// exclude associations from upsert
-			Omit(clause.Associations).
-			Create(&models).Error
-	}
-	return
-}
-
-func (p *CommentProtos) List(ctx context.Context, tx *gorm.DB, limit, offset int, order interface{}, preloads ...string) (err error) {
-	if p != nil {
-		var models CommentGormModels
-		statement := tx.Preload(clause.Associations).Limit(limit).Offset(offset)
-		for _, preload := range preloads {
-			statement = statement.Preload(preload)
-		}
-		if order != nil {
-			statement = statement.Order(order)
-		}
-		if err = statement.Find(&models).Error; err != nil {
-			return
-		}
-		if len(models) > 0 {
-			*p, err = models.ToProtos()
-		} else {
-			*p = CommentProtos{}
-		}
-	}
-	return
-}
-
-func (p *CommentProtos) GetByIds(ctx context.Context, tx *gorm.DB, ids []string, preloads ...string) (err error) {
-	if p != nil {
-		var models CommentGormModels
-		statement := tx.Preload(clause.Associations)
-		for _, preload := range preloads {
-			statement = statement.Preload(preload)
-		}
-		if err = statement.Where("id in ?", ids).Find(&models).Error; err != nil {
-			return
-		}
-		if len(models) > 0 {
-			*p, err = models.ToProtos()
-		} else {
-			*p = CommentProtos{}
-		}
-	}
-	return
-}
-
-func DeleteCommentGormModels(ctx context.Context, tx *gorm.DB, ids []string) error {
-	statement := tx.Where("id in ?", ids)
-	return statement.Delete(&CommentGormModel{}).Error
-}
-
-type ProfileGormModels []*ProfileGormModel
-type ProfileProtos []*Profile
 type ProfileGormModel struct {
 
 	// @gotags: fake:"skip"
@@ -1152,30 +729,6 @@ type ProfileGormModel struct {
 
 func (m *ProfileGormModel) TableName() string {
 	return "profiles"
-}
-
-func (m ProfileGormModels) ToProtos() (protos ProfileProtos, err error) {
-	protos = ProfileProtos{}
-	for _, model := range m {
-		var proto *Profile
-		if proto, err = model.ToProto(); err != nil {
-			return
-		}
-		protos = append(protos, proto)
-	}
-	return
-}
-
-func (p ProfileProtos) ToModels() (models ProfileGormModels, err error) {
-	models = ProfileGormModels{}
-	for _, proto := range p {
-		var model *ProfileGormModel
-		if model, err = proto.ToModel(); err != nil {
-			return
-		}
-		models = append(models, model)
-	}
-	return
 }
 
 func (m *ProfileGormModel) ToProto() (theProto *Profile, err error) {
@@ -1199,6 +752,14 @@ func (m *ProfileGormModel) ToProto() (theProto *Profile, err error) {
 	return
 }
 
+func (p *Profile) GetProtoId() *string {
+	return p.Id
+}
+
+func (p *Profile) SetProtoId(id string) {
+	p.Id = lo.ToPtr(id)
+}
+
 func (p *Profile) ToModel() (theModel *ProfileGormModel, err error) {
 	if p == nil {
 		return
@@ -1220,92 +781,228 @@ func (p *Profile) ToModel() (theModel *ProfileGormModel, err error) {
 	return
 }
 
-func (m ProfileGormModels) GetByModelIds(ctx context.Context, tx *gorm.DB, preloads ...string) (err error) {
-	ids := []string{}
-	for _, model := range m {
-		if model.Id != nil {
-			ids = append(ids, *model.Id)
-		}
-	}
-	if len(ids) > 0 {
-		statement := tx.Preload(clause.Associations)
-		for _, preload := range preloads {
-			statement = statement.Preload(preload)
-		}
-		err = statement.Where("id in ?", ids).Find(&m).Error
-	}
-	return
+// Protos is a union of other types that defines which types may be used in generic functions
+type Protos interface {
+	*User | *Company | *Address | *Comment | *Profile
 }
 
-// Upsert creates the protos using an on conflict clause to do updates. This function does not update *any* associations
-// use gorm's association mode functions to update associations as you see fit after calling upsert. See https://gorm.io/docs/associations.html#Replace-Associations
-func (p *ProfileProtos) Upsert(ctx context.Context, tx *gorm.DB) (models ProfileGormModels, err error) {
-	if p != nil {
-		for _, proto := range *p {
-			if proto.Id == nil {
-				proto.Id = lo.ToPtr(uuid.New().String())
+// Models is a union of other types that defines which types may be used in generic functions
+type Models interface {
+	*UserGormModel | *CompanyGormModel | *AddressGormModel | *CommentGormModel | *ProfileGormModel
+}
+
+// Proto[M Models] is an interface type that defines behavior for the implementer of a given Models type
+type Proto[M Models] interface {
+	GetProtoId() *string
+	SetProtoId(string)
+	ToModel() (M, error)
+}
+
+// Model[P Protos] is an interface type that defines behavior for the implementer of a given Protos type
+type Model[P Protos] interface {
+	ToProto() (P, error)
+}
+
+// ToModels converts an array of protos to an array of gorm db models by calling the proto's ToModel method
+func ToModels[P Protos, M Models](protos interface{}) ([]M, error) {
+	converted := ConvertProtosToProtosM[P, M](protos)
+	models := []M{}
+	for _, proto := range converted {
+		model, err := proto.ToModel()
+		if err != nil {
+			return nil, err
+		}
+		models = append(models, model)
+	}
+	return models, nil
+}
+
+// ConvertProtosToProtosM converts a given slice of protos into an array of the Proto interface type, which can then
+// leverage the interface methods
+func ConvertProtosToProtosM[P Protos, M Models](protos interface{}) []Proto[M] {
+	assertedProtos := protos.([]P)
+	things := make([]Proto[M], len(assertedProtos))
+	for i, v := range assertedProtos {
+		things[i] = ConvertProtoToProtosM[P, M](v)
+	}
+	return things
+}
+
+// ConvertProtoToProtosM converts a single proto to a Proto[M]
+func ConvertProtoToProtosM[P Protos, M Models](proto interface{}) Proto[M] {
+	return any(proto).(Proto[M])
+}
+
+// ConvertProtosToProtosM converts a given slice of protos into an array of the Proto interface type, which can then
+// leverage the interface methods
+func ConvertModelsToModelsP[P Protos, M Models](models interface{}) []Model[P] {
+	assertedModels := models.([]M)
+	things := make([]Model[P], len(assertedModels))
+	for i, v := range assertedModels {
+		things[i] = ConvertModelToModelP[P, M](v)
+	}
+	return things
+}
+
+// ConvertProtoToProtosM converts a single proto to a Proto[M]
+func ConvertModelToModelP[P Protos, M Models](model interface{}) Model[P] {
+	return any(model).(Model[P])
+}
+
+// ToProtos converts an array of models into an array of protos by calling the model's ToProto method
+func ToProtos[P Protos, M Models](models interface{}) ([]P, error) {
+	converted := ConvertModelsToModelsP[P, M](models)
+	protos := []P{}
+	for _, model := range converted {
+		proto, err := model.ToProto()
+		if err != nil {
+			return nil, err
+		}
+		protos = append(protos, proto)
+	}
+	return protos, nil
+}
+
+// Upsert is a generic function that will upsert any of the generated protos, returning the upserted models. Upsert
+// excludes all associations, and uses an on conflict clause to handle upsert. A function may be provided to be executed
+// during the transaction. The function is executed after the upsert. If the function returns an error, the transaction
+// will be rolled back.
+func Upsert[P Protos, M Models](ctx context.Context, db *gorm.DB, protos interface{}, txFunc func(ctx context.Context, tx *gorm.DB, protos []Proto[M], models []M) error) ([]M, error) {
+	converted := ConvertProtosToProtosM[P, M](protos)
+	if len(converted) > 0 {
+		models := []M{}
+		for _, proto := range converted {
+			if proto.GetProtoId() == nil {
+				proto.SetProtoId(uuid.New().String())
+			}
+			model, err := proto.ToModel()
+			if err != nil {
+				return nil, err
+			}
+			models = append(models, model)
+		}
+		err := crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
+			txErr := tx.
+				// on conflict, update all fields
+				Clauses(clause.OnConflict{
+					UpdateAll: true,
+				}).
+				// exclude associations from upsert
+				Omit(clause.Associations).
+				Create(&models).Error
+			if txErr != nil {
+				return txErr
+			}
+			// if a txFunc is specified, execute it
+			if txFunc != nil {
+				txErr = txFunc(ctx, tx, converted, models)
+				if txErr != nil {
+					return txErr
+				}
+			}
+			return nil
+		})
+
+		return models, err
+	}
+	return nil, nil
+}
+
+// Delete is a generic function that will delete any of the generated protos. A function may be provided to be executed
+// during the transaction. The function is executed after the delete. If the function returns an error, the transaction
+// will be rolled back.
+func Delete[M Models](ctx context.Context, db *gorm.DB, ids []string, txFunc func(ctx context.Context, tx *gorm.DB, ids []string) error) error {
+	if len(ids) > 0 {
+		return crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
+			models := []M{}
+			txErr := tx.Where("id in ?", ids).Delete(&models).Error
+			if txErr != nil {
+				return txErr
+			}
+			// if a txFunc is specified, execute it
+			if txFunc != nil {
+				txErr = txFunc(ctx, tx, ids)
+				if txErr != nil {
+					return txErr
+				}
+			}
+			return nil
+		})
+	}
+	return nil
+}
+
+// List lists the given model type
+func List[M Models](ctx context.Context, db *gorm.DB, limit, offset int, orderBy string, preloads []string) ([]M, error) {
+	session := db.Session(&gorm.Session{}).WithContext(ctx)
+	// set limit
+	if limit > 0 {
+		session = session.Limit(limit)
+	}
+	// set offset
+	if offset > 0 {
+		session = session.Offset(offset)
+	}
+	// set preloads
+	for _, preload := range preloads {
+		session = session.Preload(preload)
+	}
+	// set order by
+	if orderBy != "" {
+		session = session.Order(orderBy)
+	}
+	// execute
+	var models []M
+	err := session.Find(&models).Error
+	return models, err
+}
+
+// GetByIds gets the given model type by id
+func GetByIds[M Models](ctx context.Context, db *gorm.DB, ids []string, preloads []string) ([]M, error) {
+	session := db.Session(&gorm.Session{}).WithContext(ctx)
+	// set preloads
+	for _, preload := range preloads {
+		session = session.Preload(preload)
+	}
+	models := []M{}
+	err := session.Where("id in ?", ids).Find(&models).Error
+	return models, err
+}
+
+func AssociateManyToMany[L Models, R Models](ctx context.Context, db *gorm.DB, associations map[L][]R, associationName string, txFunc func(ctx context.Context, tx *gorm.DB) error) error {
+	return crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
+		for model, newAssociations := range associations {
+			txErr := tx.Model(&model).Association(associationName).Append(&newAssociations)
+			if txErr != nil {
+				return txErr
 			}
 		}
-		models, err = p.ToModels()
-		if err != nil {
-			return
+		// if a txFunc is specified, execute it
+		if txFunc != nil {
+			txErr := txFunc(ctx, tx)
+			if txErr != nil {
+				return txErr
+			}
 		}
-		// create new session so the tx isn't modified
-		session := tx.Session(&gorm.Session{})
-		err = session.
-			// on conflict, update all fields
-			Clauses(clause.OnConflict{
-				UpdateAll: true,
-			}).
-			// exclude associations from upsert
-			Omit(clause.Associations).
-			Create(&models).Error
-	}
-	return
+		return nil
+	})
 }
 
-func (p *ProfileProtos) List(ctx context.Context, tx *gorm.DB, limit, offset int, order interface{}, preloads ...string) (err error) {
-	if p != nil {
-		var models ProfileGormModels
-		statement := tx.Preload(clause.Associations).Limit(limit).Offset(offset)
-		for _, preload := range preloads {
-			statement = statement.Preload(preload)
+func DissociateManyToMany[L Models, R Models](ctx context.Context, db *gorm.DB, associations map[L][]R, associationName string, txFunc func(ctx context.Context, tx *gorm.DB) error) error {
+	return crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
+		for model, newAssociations := range associations {
+			txErr := tx.Model(&model).Association(associationName).Delete(&newAssociations)
+			if txErr != nil {
+				return txErr
+			}
 		}
-		if order != nil {
-			statement = statement.Order(order)
+		// if a txFunc is specified, execute it
+		if txFunc != nil {
+			txErr := txFunc(ctx, tx)
+			if txErr != nil {
+				return txErr
+			}
 		}
-		if err = statement.Find(&models).Error; err != nil {
-			return
-		}
-		if len(models) > 0 {
-			*p, err = models.ToProtos()
-		} else {
-			*p = ProfileProtos{}
-		}
-	}
-	return
-}
-
-func (p *ProfileProtos) GetByIds(ctx context.Context, tx *gorm.DB, ids []string, preloads ...string) (err error) {
-	if p != nil {
-		var models ProfileGormModels
-		statement := tx.Preload(clause.Associations)
-		for _, preload := range preloads {
-			statement = statement.Preload(preload)
-		}
-		if err = statement.Where("id in ?", ids).Find(&models).Error; err != nil {
-			return
-		}
-		if len(models) > 0 {
-			*p, err = models.ToProtos()
-		} else {
-			*p = ProfileProtos{}
-		}
-	}
-	return
-}
-
-func DeleteProfileGormModels(ctx context.Context, tx *gorm.DB, ids []string) error {
-	statement := tx.Where("id in ?", ids)
-	return statement.Delete(&ProfileGormModel{}).Error
+		return nil
+	})
 }

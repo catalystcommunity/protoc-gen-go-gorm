@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/descriptorpb"
 	"strings"
+	"text/template"
 )
 
 var (
@@ -51,10 +52,19 @@ var templateFuncs = map[string]any{
 	"emptyTag":              emptyTag,
 }
 
+var genericsTemplateFuncs = template.FuncMap{
+	"pipe": pipe,
+}
+
+func pipe(index int, messages []*PreparedMessage) bool {
+	return index+1 != len(messages)
+}
+
 var g *protogen.GeneratedFile
 
 func ApplyTemplate(gf *protogen.GeneratedFile, f *protogen.File) (err error) {
 	g = gf
+	g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "github.com/cockroachdb/cockroach-go/v2/crdb/crdbgorm"})
 	if err = headerTemplate.Execute(gf, tplHeader{
 		File: f,
 	}); err != nil {
@@ -64,7 +74,15 @@ func ApplyTemplate(gf *protogen.GeneratedFile, f *protogen.File) (err error) {
 	if preparedMessages, err = prepareMessages(f.Messages); err != nil {
 		return
 	}
-	return applyMessages(gf, preparedMessages)
+	err = applyMessages(gf, preparedMessages)
+	if err != nil {
+		return err
+	}
+	err = genericsTemplate.Funcs(genericsTemplateFuncs).Execute(gf, map[string]interface{}{"messages": preparedMessages})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func applyMessages(gf *protogen.GeneratedFile, messages []*PreparedMessage) (err error) {

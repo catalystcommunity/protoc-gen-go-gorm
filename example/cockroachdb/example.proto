@@ -62,35 +62,37 @@ message User {
   // @gotags: fake:"skip"
   google.protobuf.Struct a_structpb = 35;
   // @gotags: fake:"skip"
-  Company company = 36 [(gorm.field).belongs_to = {}, (gorm.field).on_delete = "CASCADE"];
+  optional string companyId = 36;
   // @gotags: fake:"skip"
-  optional string company_two_id = 37;
+  Company company = 37 [(gorm.field).belongs_to = {}, (gorm.field).on_delete = "CASCADE"];
   // @gotags: fake:"skip"
-  Company company_two = 38 [(gorm.field).belongs_to = {}, (gorm.field).on_delete = "CASCADE"];
+  optional string company_two_id = 38;
   // @gotags: fake:"skip"
-  optional string an_unexpected_id = 39;
+  Company company_two = 39 [(gorm.field).belongs_to = {}, (gorm.field).on_delete = "CASCADE"];
   // @gotags: fake:"skip"
-  Company company_three = 40 [(gorm.field).belongs_to = {foreignkey: "AnUnexpectedId"}, (gorm.field).on_delete = "CASCADE"];
+  optional string an_unexpected_id = 40;
   // @gotags: fake:"skip"
-  Address address = 41 [(gorm.field).has_one = {}, (gorm.field).on_delete = "CASCADE"];
+  Company company_three = 41 [(gorm.field).belongs_to = {foreignkey: "AnUnexpectedId"}, (gorm.field).on_delete = "CASCADE"];
   // @gotags: fake:"skip"
-  repeated Comment comments = 42 [(gorm.field).has_many = {}, (gorm.field).on_delete = "CASCADE"];
+  Address address = 42 [(gorm.field).has_one = {}, (gorm.field).on_delete = "CASCADE"];
   // @gotags: fake:"skip"
-  repeated Profile profiles = 43 [(gorm.field).many_to_many = {}, (gorm.field).on_delete = "CASCADE"];
+  repeated Comment comments = 43 [(gorm.field).has_many = {}, (gorm.field).on_delete = "CASCADE"];
+  // @gotags: fake:"skip"
+  repeated Profile profiles = 44 [(gorm.field).many_to_many = {}, (gorm.field).on_delete = "CASCADE"];
   // @gotags: fake:"{number:1,9}"
-  EnumOne int_enum = 44;
+  EnumOne int_enum = 45;
   // @gotags: fake:"{number:1,9}"
-  EnumOne string_enum = 45 [(gorm.field).enum_as_string = true];
+  EnumOne string_enum = 46 [(gorm.field).enum_as_string = true];
   // @gotags: fake:"{number:1,9}"
-  repeated EnumOne int_enum_list = 46;
+  repeated EnumOne int_enum_list = 47;
   // @gotags: fake:"{number:1,9}"
-  repeated EnumOne string_enum_list = 47 [(gorm.field).enum_as_string = true];
+  repeated EnumOne string_enum_list = 48 [(gorm.field).enum_as_string = true];
   // @gotags: fake:"{date:2006-01-02}"
-  string date = 48 [(gorm.field).time_format_override = "2006-01-02"];
+  string date = 49 [(gorm.field).time_format_override = "2006-01-02"];
   // @gotags: fake:"{date:2006-01-02}"
-  optional string optional_date = 49 [(gorm.field).time_format_override = "2006-01-02"];
+  optional string optional_date = 50 [(gorm.field).time_format_override = "2006-01-02"];
   // @gotags: fake:"skip"
-  google.protobuf.Timestamp some_timestamp = 50;
+  google.protobuf.Timestamp some_timestamp = 51;
 }
 
 message Company {
@@ -133,7 +135,9 @@ message Comment {
   // @gotags: fake:"{name}"
   string name = 4;
   // @gotags: fake:"skip"
-  User user = 5 [(gorm.field).belongs_to = {}, (gorm.field).on_delete = "CASCADE"];
+  optional string userId = 5;
+  // @gotags: fake:"skip"
+  User user = 6 [(gorm.field).belongs_to = {}, (gorm.field).on_delete = "CASCADE"];
 }
 
 message Profile {
