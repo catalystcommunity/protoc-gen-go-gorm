@@ -36,9 +36,8 @@ func main() {
 			glog.Infof("Processing %s", name)
 			glog.Infof("Generating %s\n", fmt.Sprintf("%s.pb.gorm.go", f.GeneratedFilenamePrefix))
 
-			gf := gp.NewGeneratedFile(fmt.Sprintf("%s.pb.gorm.go", f.GeneratedFilenamePrefix), f.GoImportPath)
-
 			if shouldGenerateFile(f) {
+				gf := gp.NewGeneratedFile(fmt.Sprintf("%s.pb.gorm.go", f.GeneratedFilenamePrefix), f.GoImportPath)
 				err := plugin.ApplyTemplate(gf, f)
 				if err != nil {
 					gf.Skip()
