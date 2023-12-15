@@ -88,7 +88,7 @@ func (s *CockroachdbPluginSuite) TestDeleteWithFunc() {
 	ids := lo.Map(profiles, func(item *Profile, index int) string { return *item.Id })
 	idsToDelete := ids[:3]
 	var weh string
-	err = Delete[*ProfileGormModel](context.Background(), cockroachdbDb, idsToDelete, func(ctx context.Context, tx *gorm.DB, ids []string) error {
+	err = Delete[*ProfileGormModel](context.Background(), cockroachdbDb, idsToDelete, func(ctx context.Context, tx *gorm.DB, ids []string, models []*ProfileGormModel) error {
 		weh = "weh"
 		return nil
 	})
@@ -110,7 +110,7 @@ func (s *CockroachdbPluginSuite) TestDeleteWithFuncErr() {
 	// delete some
 	ids := lo.Map(profiles, func(item *Profile, index int) string { return *item.Id })
 	idsToDelete := ids[:3]
-	err = Delete[*ProfileGormModel](context.Background(), cockroachdbDb, idsToDelete, func(ctx context.Context, tx *gorm.DB, ids []string) error {
+	err = Delete[*ProfileGormModel](context.Background(), cockroachdbDb, idsToDelete, func(ctx context.Context, tx *gorm.DB, ids []string, models []*ProfileGormModel) error {
 		return errors.New("weh")
 	})
 	require.Error(s.T(), err)
