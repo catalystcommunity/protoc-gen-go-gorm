@@ -201,22 +201,33 @@ func GetByIds[M Models](ctx context.Context, db *gorm.DB, ids []string, preloads
 }
 
 func AssociateManyToMany[L Models, R Models](ctx context.Context, db *gorm.DB, associations map[L][]R, associationName string, txFunc func(ctx context.Context, tx *gorm.DB) error) error {
-	return crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
-		for model, newAssociations := range associations {
-			txErr := tx.Model(&model).Association(associationName).Append(&newAssociations)
-			if txErr != nil {
-				return txErr
-			}
+	if db == nil {
+		// no db means execute in transaction
+		return crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
+			return associateManyToMany[L, R](ctx, tx, associations, associationName, txFunc)
+		})
+	} else {
+		// db means use the given db instead of creating a new transaction
+		return associateManyToMany[L, R](ctx, db, associations, associationName, txFunc)
+	}
+
+}
+
+func associateManyToMany[L Models, R Models](ctx context.Context, tx *gorm.DB, associations map[L][]R, associationName string, txFunc func(ctx context.Context, tx *gorm.DB) error) error {
+	for model, newAssociations := range associations {
+		txErr := tx.Model(&model).Association(associationName).Append(&newAssociations)
+		if txErr != nil {
+			return txErr
 		}
-		// if a txFunc is specified, execute it
-		if txFunc != nil {
-			txErr := txFunc(ctx, tx)
-			if txErr != nil {
-				return txErr
-			}
+	}
+	// if a txFunc is specified, execute it
+	if txFunc != nil {
+		txErr := txFunc(ctx, tx)
+		if txErr != nil {
+			return txErr
 		}
-		return nil
-	})
+	}
+	return nil
 }
 
 func DissociateManyToMany[L Models, R Models](ctx context.Context, db *gorm.DB, associations map[L][]R, associationName string, txFunc func(ctx context.Context, tx *gorm.DB) error) error {
