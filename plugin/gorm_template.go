@@ -130,6 +130,21 @@ func (p *{{.GoIdent.GoName}}) SetProtoId(id string) {
 	p.Id = lo.ToPtr(id)
 }
 
+func (m *{{ .Model.Name }}) New() interface{} {
+	return &{{ .Model.Name }}{}
+}
+
+func (m *{{ .Model.Name }}) GetModelId() *string {
+	return m.Id
+}
+
+func (m *{{ .Model.Name }}) SetModelId(id string) {
+	if m == nil {
+	  m = &{{ .Model.Name }}{}
+	}
+	m.Id = lo.ToPtr(id)
+}
+
 func (p *{{.GoIdent.GoName}}) ToModel() (theModel *{{ .Model.Name }}, err error) {
 	if p == nil {
 		return

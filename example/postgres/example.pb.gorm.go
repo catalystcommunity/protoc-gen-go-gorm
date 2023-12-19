@@ -6,7 +6,6 @@ package example
 import (
 	context "context"
 	json "encoding/json"
-	crdbgorm "github.com/cockroachdb/cockroach-go/v2/crdb/crdbgorm"
 	gorm_jsonb "github.com/dariubs/gorm-jsonb"
 	uuid "github.com/google/uuid"
 	pq "github.com/lib/pq"
@@ -14,6 +13,7 @@ import (
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	gorm "gorm.io/gorm"
 	clause "gorm.io/gorm/clause"
+	sync "sync"
 	time "time"
 )
 
@@ -296,6 +296,21 @@ func (p *User) GetProtoId() *string {
 
 func (p *User) SetProtoId(id string) {
 	p.Id = lo.ToPtr(id)
+}
+
+func (m *UserGormModel) New() interface{} {
+	return &UserGormModel{}
+}
+
+func (m *UserGormModel) GetModelId() *string {
+	return m.Id
+}
+
+func (m *UserGormModel) SetModelId(id string) {
+	if m == nil {
+		m = &UserGormModel{}
+	}
+	m.Id = lo.ToPtr(id)
 }
 
 func (p *User) ToModel() (theModel *UserGormModel, err error) {
@@ -626,6 +641,21 @@ func (p *Company) SetProtoId(id string) {
 	p.Id = lo.ToPtr(id)
 }
 
+func (m *CompanyGormModel) New() interface{} {
+	return &CompanyGormModel{}
+}
+
+func (m *CompanyGormModel) GetModelId() *string {
+	return m.Id
+}
+
+func (m *CompanyGormModel) SetModelId(id string) {
+	if m == nil {
+		m = &CompanyGormModel{}
+	}
+	m.Id = lo.ToPtr(id)
+}
+
 func (p *Company) ToModel() (theModel *CompanyGormModel, err error) {
 	if p == nil {
 		return
@@ -834,6 +864,21 @@ func (p *Address) GetProtoId() *string {
 
 func (p *Address) SetProtoId(id string) {
 	p.Id = lo.ToPtr(id)
+}
+
+func (m *AddressGormModel) New() interface{} {
+	return &AddressGormModel{}
+}
+
+func (m *AddressGormModel) GetModelId() *string {
+	return m.Id
+}
+
+func (m *AddressGormModel) SetModelId(id string) {
+	if m == nil {
+		m = &AddressGormModel{}
+	}
+	m.Id = lo.ToPtr(id)
 }
 
 func (p *Address) ToModel() (theModel *AddressGormModel, err error) {
@@ -1054,6 +1099,21 @@ func (p *Comment) SetProtoId(id string) {
 	p.Id = lo.ToPtr(id)
 }
 
+func (m *CommentGormModel) New() interface{} {
+	return &CommentGormModel{}
+}
+
+func (m *CommentGormModel) GetModelId() *string {
+	return m.Id
+}
+
+func (m *CommentGormModel) SetModelId(id string) {
+	if m == nil {
+		m = &CommentGormModel{}
+	}
+	m.Id = lo.ToPtr(id)
+}
+
 func (p *Comment) ToModel() (theModel *CommentGormModel, err error) {
 	if p == nil {
 		return
@@ -1250,6 +1310,21 @@ func (p *Profile) SetProtoId(id string) {
 	p.Id = lo.ToPtr(id)
 }
 
+func (m *ProfileGormModel) New() interface{} {
+	return &ProfileGormModel{}
+}
+
+func (m *ProfileGormModel) GetModelId() *string {
+	return m.Id
+}
+
+func (m *ProfileGormModel) SetModelId(id string) {
+	if m == nil {
+		m = &ProfileGormModel{}
+	}
+	m.Id = lo.ToPtr(id)
+}
+
 func (p *Profile) ToModel() (theModel *ProfileGormModel, err error) {
 	if p == nil {
 		return
@@ -1364,11 +1439,16 @@ func DeleteProfileGormModels(ctx context.Context, tx *gorm.DB, ids []string) err
 // Protos is a union of other types that defines which types may be used in generic functions
 type Protos interface {
 	*User | *Company | *Address | *Comment | *Profile
+	GetProtoId() *string
+	SetProtoId(string)
 }
 
 // Models is a union of other types that defines which types may be used in generic functions
 type Models interface {
 	*UserGormModel | *CompanyGormModel | *AddressGormModel | *CommentGormModel | *ProfileGormModel
+	GetModelId() *string
+	SetModelId(string)
+	New() interface{}
 }
 
 // Proto[M Models] is an interface type that defines behavior for the implementer of a given Models type
@@ -1447,7 +1527,7 @@ func ToProtos[P Protos, M Models](models interface{}) ([]P, error) {
 // excludes all associations, and uses an on conflict clause to handle upsert. A function may be provided to be executed
 // during the transaction. The function is executed after the upsert. If the function returns an error, the transaction
 // will be rolled back.
-func Upsert[P Protos, M Models](ctx context.Context, db *gorm.DB, protos interface{}, txFunc func(ctx context.Context, tx *gorm.DB, protos []Proto[M], models []M) error) ([]M, error) {
+func Upsert[P Protos, M Models](ctx context.Context, db *gorm.DB, protos interface{}) ([]M, error) {
 	converted := ConvertProtosToProtosM[P, M](protos)
 	if len(converted) > 0 {
 		models := []M{}
@@ -1461,27 +1541,15 @@ func Upsert[P Protos, M Models](ctx context.Context, db *gorm.DB, protos interfa
 			}
 			models = append(models, model)
 		}
-		err := crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
-			txErr := tx.
-				// on conflict, update all fields
-				Clauses(clause.OnConflict{
-					UpdateAll: true,
-				}).
-				// exclude associations from upsert
-				Omit(clause.Associations).
-				Create(&models).Error
-			if txErr != nil {
-				return txErr
-			}
-			// if a txFunc is specified, execute it
-			if txFunc != nil {
-				txErr = txFunc(ctx, tx, converted, models)
-				if txErr != nil {
-					return txErr
-				}
-			}
-			return nil
-		})
+		session := db.Session(&gorm.Session{})
+		err := session.
+			// on conflict, update all fields
+			Clauses(clause.OnConflict{
+				UpdateAll: true,
+			}).
+			// exclude associations from upsert
+			Omit(clause.Associations).
+			Create(&models).Error
 
 		return models, err
 	}
@@ -1491,23 +1559,11 @@ func Upsert[P Protos, M Models](ctx context.Context, db *gorm.DB, protos interfa
 // Delete is a generic function that will delete any of the generated protos. A function may be provided to be executed
 // during the transaction. The function is executed after the delete. If the function returns an error, the transaction
 // will be rolled back.
-func Delete[M Models](ctx context.Context, db *gorm.DB, ids []string, txFunc func(ctx context.Context, tx *gorm.DB, ids []string, models []M) error) error {
+func Delete[M Models](ctx context.Context, db *gorm.DB, ids []string) error {
 	if len(ids) > 0 {
-		return crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
-			models := []M{}
-			txErr := tx.Where("id in ?", ids).Delete(&models).Error
-			if txErr != nil {
-				return txErr
-			}
-			// if a txFunc is specified, execute it
-			if txFunc != nil {
-				txErr = txFunc(ctx, tx, ids, models)
-				if txErr != nil {
-					return txErr
-				}
-			}
-			return nil
-		})
+		session := db.Session(&gorm.Session{})
+		models := []M{}
+		return session.Where("id in ?", ids).Delete(&models).Error
 	}
 	return nil
 }
@@ -1549,51 +1605,71 @@ func GetByIds[M Models](ctx context.Context, db *gorm.DB, ids []string, preloads
 	return models, err
 }
 
-func AssociateManyToMany[L Models, R Models](ctx context.Context, db *gorm.DB, associations map[L][]R, associationName string, txFunc func(ctx context.Context, tx *gorm.DB) error) error {
-	if db == nil {
-		// no db means execute in transaction
-		return crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
-			return associateManyToMany[L, R](ctx, tx, associations, associationName, txFunc)
-		})
-	} else {
-		// db means use the given db instead of creating a new transaction
-		return associateManyToMany[L, R](ctx, db, associations, associationName, txFunc)
-	}
-
+// ManyToManyAssociations is a sync map with helper functions. I'm using a sync.map so that it's thread safe, and
+// a struct to allow us to easily define behavior we can use elsewhere
+type ManyToManyAssociations struct {
+	data sync.Map
 }
 
-func associateManyToMany[L Models, R Models](ctx context.Context, tx *gorm.DB, associations map[L][]R, associationName string, txFunc func(ctx context.Context, tx *gorm.DB) error) error {
-	for model, newAssociations := range associations {
-		txErr := tx.Model(&model).Association(associationName).Append(&newAssociations)
-		if txErr != nil {
-			return txErr
-		}
+func (m *ManyToManyAssociations) Associations() map[string][]string {
+	associations := map[string][]string{}
+	m.data.Range(func(key, value any) bool {
+		associations[key.(string)] = value.([]string)
+		return true
+	})
+	return associations
+}
+
+func (m *ManyToManyAssociations) AddAssociation(modelId, associatedId string) {
+	var associations []string
+	val, ok := m.data.Load(modelId)
+	if ok {
+		associations = val.([]string)
+		associations = append(associations, associatedId)
+	} else {
+		associations = []string{associatedId}
 	}
-	// if a txFunc is specified, execute it
-	if txFunc != nil {
-		txErr := txFunc(ctx, tx)
-		if txErr != nil {
-			return txErr
+	m.data.Store(modelId, associations)
+}
+
+func AssociateManyToMany[L Models, R Models](ctx context.Context, db *gorm.DB, associations *ManyToManyAssociations, associationName string) error {
+	session := db.Session(&gorm.Session{})
+	for id, associatedIds := range associations.Associations() {
+		var associations []R
+		var temp L
+		model := temp.New().(L)
+		model.SetModelId(id)
+		for _, id := range associatedIds {
+			var associatedTemp R
+			associatedModel := associatedTemp.New().(R)
+			associatedModel.SetModelId(id)
+			associations = append(associations, associatedModel)
+		}
+		err := session.Model(&model).Association(associationName).Append(&associations)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-func DissociateManyToMany[L Models, R Models](ctx context.Context, db *gorm.DB, associations map[L][]R, associationName string, txFunc func(ctx context.Context, tx *gorm.DB) error) error {
-	return crdbgorm.ExecuteTx(ctx, db, nil, func(tx *gorm.DB) error {
-		for model, newAssociations := range associations {
-			txErr := tx.Model(&model).Association(associationName).Delete(&newAssociations)
-			if txErr != nil {
-				return txErr
-			}
+func DissociateManyToMany[L Models, R Models](ctx context.Context, db *gorm.DB, associations *ManyToManyAssociations, associationName string) error {
+	session := db.Session(&gorm.Session{})
+	for id, associatedIds := range associations.Associations() {
+		var associations []R
+		var temp L
+		model := temp.New().(L)
+		model.SetModelId(id)
+		for _, id := range associatedIds {
+			var associatedTemp R
+			associatedModel := associatedTemp.New().(R)
+			associatedModel.SetModelId(id)
+			associations = append(associations, associatedModel)
 		}
-		// if a txFunc is specified, execute it
-		if txFunc != nil {
-			txErr := txFunc(ctx, tx)
-			if txErr != nil {
-				return txErr
-			}
+		txErr := session.Model(&model).Association(associationName).Delete(&associations)
+		if txErr != nil {
+			return txErr
 		}
-		return nil
-	})
+	}
+	return nil
 }

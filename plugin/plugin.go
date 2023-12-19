@@ -64,7 +64,7 @@ var g *protogen.GeneratedFile
 
 func ApplyTemplate(gf *protogen.GeneratedFile, f *protogen.File) (err error) {
 	g = gf
-	g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "github.com/cockroachdb/cockroach-go/v2/crdb/crdbgorm"})
+	g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "sync"})
 	if err = headerTemplate.Execute(gf, tplHeader{
 		File: f,
 	}); err != nil {
