@@ -211,6 +211,7 @@ func (m *ManyToManyAssociations) AddAssociation(modelId, associatedId string) {
 
 func AssociateManyToMany[L Models, R Models](ctx context.Context, db *gorm.DB, associations *ManyToManyAssociations, associationName string) error {
 	session := db.Session(&gorm.Session{})
+	session = session.Clauses(clause.OnConflict{DoNothing: true})
 	for id, associatedIds := range associations.Associations() {
 		var associations []R
 		var temp L
