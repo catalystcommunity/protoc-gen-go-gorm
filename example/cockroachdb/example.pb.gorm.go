@@ -17,6 +17,9 @@ import (
 	time "time"
 )
 
+// cockroachdb doesn't support nanosecond timestamp columns so use microsecond instead
+const TimestampFormat = "2006-01-02T15:04:05.999999Z07:00"
+
 type UserGormModels []*UserGormModel
 type UserProtos []*User
 type UserGormModel struct {
@@ -164,7 +167,7 @@ func (m *UserGormModel) ToProto() (theProto *User, err error) {
 	theProto.Id = m.Id
 
 	if m.CreatedAt != nil {
-		theProto.CreatedAt = m.CreatedAt.Format(time.RFC3339Nano)
+		theProto.CreatedAt = m.CreatedAt.Format(TimestampFormat)
 	}
 
 	if m.UpdatedAt != nil {
@@ -323,7 +326,7 @@ func (p *User) ToModel() (theModel *UserGormModel, err error) {
 
 	if p.CreatedAt != "" {
 		var timestamp time.Time
-		if timestamp, err = time.Parse(time.RFC3339Nano, p.CreatedAt); err != nil {
+		if timestamp, err = time.Parse(TimestampFormat, p.CreatedAt); err != nil {
 			return
 		}
 		theModel.CreatedAt = &timestamp
