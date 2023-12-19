@@ -419,3 +419,45 @@ func (s *CockroachdbPluginSuite) TestGetByIds() {
 		protocmp.IgnoreFields(&Profile{}, "created_at", "updated_at"),
 	)
 }
+
+// TestDelete tests that the delete function works as expected
+func (s *CockroachdbPluginSuite) TestDelete() {
+	// create profiles
+	numProfiles := gofakeit.Number(2, 5)
+	profiles := getCockroachdbProfiles(s.T(), numProfiles)
+	_, err := Upsert[*Profile, *ProfileGormModel](context.Background(), cockroachdbDb, profiles)
+	require.NoError(s.T(), err)
+	// list profiles
+	models, err := List[*ProfileGormModel](context.Background(), cockroachdbDb, 100, 0, "", nil)
+	require.NoError(s.T(), err)
+	// assert equality
+	idsSet := hashset.New()
+	for _, profile := range profiles {
+		idsSet.Add(*profile.Id)
+	}
+	fetchedProfiles, err := ToProtos[*Profile, *ProfileGormModel](models)
+	require.NoError(s.T(), err)
+	// filter down to the ids we created
+	fetchedProfiles = lo.Filter(fetchedProfiles, func(item *Profile, index int) bool { return idsSet.Contains(*item.Id) })
+	require.Len(s.T(), fetchedProfiles, numProfiles)
+	assertCockroachdbProtosEquality(s.T(), profiles, fetchedProfiles,
+		protocmp.IgnoreFields(&Profile{}, "created_at", "updated_at"),
+	)
+	// delete
+	session := cockroachdbDb.Session(&gorm.Session{})
+	// add returning id clause to test returned models
+	session = session.Clauses(clause.Returning{Columns: []clause.Column{{Name: "id"}}})
+	idsToDelete := []string{}
+	for _, id := range idsSet.Values() {
+		idsToDelete = append(idsToDelete, id.(string))
+	}
+	deletedModels, err := Delete[*ProfileGormModel](context.Background(), session, idsToDelete)
+	require.NoError(s.T(), err)
+	for _, model := range deletedModels {
+		require.NotNil(s.T(), model.Id)
+		require.True(s.T(), idsSet.Contains(*model.Id))
+	}
+	fetchedModels, err := GetByIds[*ProfileGormModel](context.Background(), cockroachdbDb, idsToDelete, nil)
+	require.NoError(s.T(), err)
+	require.Len(s.T(), fetchedModels, 0)
+}

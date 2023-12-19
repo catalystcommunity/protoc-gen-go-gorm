@@ -1559,13 +1559,14 @@ func Upsert[P Protos, M Models](ctx context.Context, db *gorm.DB, protos interfa
 // Delete is a generic function that will delete any of the generated protos. A function may be provided to be executed
 // during the transaction. The function is executed after the delete. If the function returns an error, the transaction
 // will be rolled back.
-func Delete[M Models](ctx context.Context, db *gorm.DB, ids []string) error {
+func Delete[M Models](ctx context.Context, db *gorm.DB, ids []string) ([]M, error) {
 	if len(ids) > 0 {
 		session := db.Session(&gorm.Session{})
 		models := []M{}
-		return session.Where("id in ?", ids).Delete(&models).Error
+		err := session.Where("id in ?", ids).Delete(&models).Error
+		return models, err
 	}
-	return nil
+	return nil, nil
 }
 
 // List lists the given model type
