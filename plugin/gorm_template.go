@@ -52,7 +52,7 @@ func (m *{{ .Model.Name }}) ToProto() (theProto *{{.GoIdent.GoName}}, err error)
     {{ if .IsTimestamp }}
     {{ if eq .Desc.Kind 9 }}
 	if m.{{ .GoName }} != nil {
-		theProto.{{ .GoName }} = m.{{ .GoName }}.Format(time.RFC3339Nano)
+		theProto.{{ .GoName }} = m.{{ .GoName }}.Format(TimestampFormat)
 	}
     {{ else }}
     if m.{{ .GoName }} != nil {
@@ -155,7 +155,7 @@ func (p *{{.GoIdent.GoName}}) ToModel() (theModel *{{ .Model.Name }}, err error)
 	{{ if eq .Desc.Kind 9 }}
 	if p.{{ .GoName }} != "" {
 		var timestamp time.Time
-		if timestamp, err = time.Parse(time.RFC3339Nano, p.{{ .GoName }}); err != nil {
+		if timestamp, err = time.Parse(TimestampFormat, p.{{ .GoName }}); err != nil {
 			return
 		}
 		theModel.{{ .GoName }} = &timestamp

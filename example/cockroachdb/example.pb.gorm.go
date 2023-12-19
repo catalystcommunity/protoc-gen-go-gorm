@@ -17,6 +17,8 @@ import (
 	time "time"
 )
 
+const TimestampFormat = "2006-01-02T15:04:05.999999Z07:00"
+
 type UserGormModels []*UserGormModel
 type UserProtos []*User
 type UserGormModel struct {
@@ -164,7 +166,7 @@ func (m *UserGormModel) ToProto() (theProto *User, err error) {
 	theProto.Id = m.Id
 
 	if m.CreatedAt != nil {
-		theProto.CreatedAt = m.CreatedAt.Format(time.RFC3339Nano)
+		theProto.CreatedAt = m.CreatedAt.Format(TimestampFormat)
 	}
 
 	if m.UpdatedAt != nil {
@@ -323,7 +325,7 @@ func (p *User) ToModel() (theModel *UserGormModel, err error) {
 
 	if p.CreatedAt != "" {
 		var timestamp time.Time
-		if timestamp, err = time.Parse(time.RFC3339Nano, p.CreatedAt); err != nil {
+		if timestamp, err = time.Parse(TimestampFormat, p.CreatedAt); err != nil {
 			return
 		}
 		theModel.CreatedAt = &timestamp
@@ -1635,6 +1637,7 @@ func (m *ManyToManyAssociations) AddAssociation(modelId, associatedId string) {
 
 func AssociateManyToMany[L Models, R Models](ctx context.Context, db *gorm.DB, associations *ManyToManyAssociations, associationName string) error {
 	session := db.Session(&gorm.Session{})
+	session = session.Clauses(clause.OnConflict{DoNothing: true})
 	for id, associatedIds := range associations.Associations() {
 		var associations []R
 		var temp L
