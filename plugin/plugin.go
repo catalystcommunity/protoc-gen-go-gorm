@@ -16,6 +16,7 @@ import (
 	"text/template"
 )
 
+// .
 var (
 	enumsAsInts = flag.Bool("enums_as_ints", false, "render enums as integers as opposed to strings")
 	engine      = flag.String("engine", "postgres", "database to render templates for, supported engines are 'postgres' and 'cockroachdb'")
