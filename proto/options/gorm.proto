@@ -12,6 +12,7 @@ extend google.protobuf.FileOptions {
 }
 
 message GormFileOptions {
+  bool generate = 1;
 }
 
 // Validation rules applied at the message level

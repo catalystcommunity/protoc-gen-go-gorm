@@ -13,8 +13,12 @@ import (
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	gorm "gorm.io/gorm"
 	clause "gorm.io/gorm/clause"
+	sync "sync"
 	time "time"
 )
+
+// cockroachdb doesn't support nanosecond timestamp columns so use microsecond instead
+const TimestampFormat = "2006-01-02T15:04:05.999999Z07:00"
 
 type UserGormModels []*UserGormModel
 type UserProtos []*User
@@ -77,7 +81,8 @@ type UserGormModel struct {
 	// @gotags: fake:"skip"
 	AStructpb gorm_jsonb.JSONB `gorm:"type:jsonb" json:"aStructpb" fake:"skip"`
 
-	CompanyId *string ``
+	// @gotags: fake:"skip"
+	CompanyId *string `json:"companyId" fake:"skip"`
 
 	// @gotags: fake:"skip"
 	Company *CompanyGormModel `gorm:"foreignKey:CompanyId;references:Id;constraint:OnDelete:CASCADE;" json:"company" fake:"skip"`
@@ -162,7 +167,7 @@ func (m *UserGormModel) ToProto() (theProto *User, err error) {
 	theProto.Id = m.Id
 
 	if m.CreatedAt != nil {
-		theProto.CreatedAt = m.CreatedAt.Format(time.RFC3339Nano)
+		theProto.CreatedAt = m.CreatedAt.Format(TimestampFormat)
 	}
 
 	if m.UpdatedAt != nil {
@@ -208,6 +213,8 @@ func (m *UserGormModel) ToProto() (theProto *User, err error) {
 			return
 		}
 	}
+
+	theProto.CompanyId = m.CompanyId
 
 	if theProto.Company, err = m.Company.ToProto(); err != nil {
 		return
@@ -286,6 +293,29 @@ func (m *UserGormModel) ToProto() (theProto *User, err error) {
 	return
 }
 
+func (p *User) GetProtoId() *string {
+	return p.Id
+}
+
+func (p *User) SetProtoId(id string) {
+	p.Id = lo.ToPtr(id)
+}
+
+func (m *UserGormModel) New() interface{} {
+	return &UserGormModel{}
+}
+
+func (m *UserGormModel) GetModelId() *string {
+	return m.Id
+}
+
+func (m *UserGormModel) SetModelId(id string) {
+	if m == nil {
+		m = &UserGormModel{}
+	}
+	m.Id = lo.ToPtr(id)
+}
+
 func (p *User) ToModel() (theModel *UserGormModel, err error) {
 	if p == nil {
 		return
@@ -296,7 +326,7 @@ func (p *User) ToModel() (theModel *UserGormModel, err error) {
 
 	if p.CreatedAt != "" {
 		var timestamp time.Time
-		if timestamp, err = time.Parse(time.RFC3339Nano, p.CreatedAt); err != nil {
+		if timestamp, err = time.Parse(TimestampFormat, p.CreatedAt); err != nil {
 			return
 		}
 		theModel.CreatedAt = &timestamp
@@ -345,6 +375,8 @@ func (p *User) ToModel() (theModel *UserGormModel, err error) {
 			return
 		}
 	}
+
+	theModel.CompanyId = p.CompanyId
 
 	if theModel.Company, err = p.Company.ToModel(); err != nil {
 		return
@@ -604,6 +636,29 @@ func (m *CompanyGormModel) ToProto() (theProto *Company, err error) {
 	return
 }
 
+func (p *Company) GetProtoId() *string {
+	return p.Id
+}
+
+func (p *Company) SetProtoId(id string) {
+	p.Id = lo.ToPtr(id)
+}
+
+func (m *CompanyGormModel) New() interface{} {
+	return &CompanyGormModel{}
+}
+
+func (m *CompanyGormModel) GetModelId() *string {
+	return m.Id
+}
+
+func (m *CompanyGormModel) SetModelId(id string) {
+	if m == nil {
+		m = &CompanyGormModel{}
+	}
+	m.Id = lo.ToPtr(id)
+}
+
 func (p *Company) ToModel() (theModel *CompanyGormModel, err error) {
 	if p == nil {
 		return
@@ -806,6 +861,29 @@ func (m *AddressGormModel) ToProto() (theProto *Address, err error) {
 	return
 }
 
+func (p *Address) GetProtoId() *string {
+	return p.Id
+}
+
+func (p *Address) SetProtoId(id string) {
+	p.Id = lo.ToPtr(id)
+}
+
+func (m *AddressGormModel) New() interface{} {
+	return &AddressGormModel{}
+}
+
+func (m *AddressGormModel) GetModelId() *string {
+	return m.Id
+}
+
+func (m *AddressGormModel) SetModelId(id string) {
+	if m == nil {
+		m = &AddressGormModel{}
+	}
+	m.Id = lo.ToPtr(id)
+}
+
 func (p *Address) ToModel() (theModel *AddressGormModel, err error) {
 	if p == nil {
 		return
@@ -954,7 +1032,8 @@ type CommentGormModel struct {
 	// @gotags: fake:"{name}"
 	Name string `json:"name" fake:"{name}"`
 
-	UserId *string ``
+	// @gotags: fake:"skip"
+	UserId *string `json:"userId" fake:"skip"`
 
 	// @gotags: fake:"skip"
 	User *UserGormModel `gorm:"foreignKey:UserId;references:Id;constraint:OnDelete:CASCADE;" json:"user" fake:"skip"`
@@ -1006,11 +1085,36 @@ func (m *CommentGormModel) ToProto() (theProto *Comment, err error) {
 
 	theProto.Name = m.Name
 
+	theProto.UserId = m.UserId
+
 	if theProto.User, err = m.User.ToProto(); err != nil {
 		return
 	}
 
 	return
+}
+
+func (p *Comment) GetProtoId() *string {
+	return p.Id
+}
+
+func (p *Comment) SetProtoId(id string) {
+	p.Id = lo.ToPtr(id)
+}
+
+func (m *CommentGormModel) New() interface{} {
+	return &CommentGormModel{}
+}
+
+func (m *CommentGormModel) GetModelId() *string {
+	return m.Id
+}
+
+func (m *CommentGormModel) SetModelId(id string) {
+	if m == nil {
+		m = &CommentGormModel{}
+	}
+	m.Id = lo.ToPtr(id)
 }
 
 func (p *Comment) ToModel() (theModel *CommentGormModel, err error) {
@@ -1030,6 +1134,8 @@ func (p *Comment) ToModel() (theModel *CommentGormModel, err error) {
 	}
 
 	theModel.Name = p.Name
+
+	theModel.UserId = p.UserId
 
 	if theModel.User, err = p.User.ToModel(); err != nil {
 		return
@@ -1199,6 +1305,29 @@ func (m *ProfileGormModel) ToProto() (theProto *Profile, err error) {
 	return
 }
 
+func (p *Profile) GetProtoId() *string {
+	return p.Id
+}
+
+func (p *Profile) SetProtoId(id string) {
+	p.Id = lo.ToPtr(id)
+}
+
+func (m *ProfileGormModel) New() interface{} {
+	return &ProfileGormModel{}
+}
+
+func (m *ProfileGormModel) GetModelId() *string {
+	return m.Id
+}
+
+func (m *ProfileGormModel) SetModelId(id string) {
+	if m == nil {
+		m = &ProfileGormModel{}
+	}
+	m.Id = lo.ToPtr(id)
+}
+
 func (p *Profile) ToModel() (theModel *ProfileGormModel, err error) {
 	if p == nil {
 		return
@@ -1308,4 +1437,244 @@ func (p *ProfileProtos) GetByIds(ctx context.Context, tx *gorm.DB, ids []string,
 func DeleteProfileGormModels(ctx context.Context, tx *gorm.DB, ids []string) error {
 	statement := tx.Where("id in ?", ids)
 	return statement.Delete(&ProfileGormModel{}).Error
+}
+
+// Protos is a union of other types that defines which types may be used in generic functions
+type Protos interface {
+	*User | *Company | *Address | *Comment | *Profile
+	GetProtoId() *string
+	SetProtoId(string)
+}
+
+// Models is a union of other types that defines which types may be used in generic functions
+type Models interface {
+	*UserGormModel | *CompanyGormModel | *AddressGormModel | *CommentGormModel | *ProfileGormModel
+	GetModelId() *string
+	SetModelId(string)
+	New() interface{}
+}
+
+// Proto[M Models] is an interface type that defines behavior for the implementer of a given Models type
+type Proto[M Models] interface {
+	GetProtoId() *string
+	SetProtoId(string)
+	ToModel() (M, error)
+}
+
+// Model[P Protos] is an interface type that defines behavior for the implementer of a given Protos type
+type Model[P Protos] interface {
+	ToProto() (P, error)
+}
+
+// ToModels converts an array of protos to an array of gorm db models by calling the proto's ToModel method
+func ToModels[P Protos, M Models](protos interface{}) ([]M, error) {
+	converted := ConvertProtosToProtosM[P, M](protos)
+	models := []M{}
+	for _, proto := range converted {
+		model, err := proto.ToModel()
+		if err != nil {
+			return nil, err
+		}
+		models = append(models, model)
+	}
+	return models, nil
+}
+
+// ConvertProtosToProtosM converts a given slice of protos into an array of the Proto interface type, which can then
+// leverage the interface methods
+func ConvertProtosToProtosM[P Protos, M Models](protos interface{}) []Proto[M] {
+	assertedProtos := protos.([]P)
+	things := make([]Proto[M], len(assertedProtos))
+	for i, v := range assertedProtos {
+		things[i] = ConvertProtoToProtosM[P, M](v)
+	}
+	return things
+}
+
+// ConvertProtoToProtosM converts a single proto to a Proto[M]
+func ConvertProtoToProtosM[P Protos, M Models](proto interface{}) Proto[M] {
+	return any(proto).(Proto[M])
+}
+
+// ConvertProtosToProtosM converts a given slice of protos into an array of the Proto interface type, which can then
+// leverage the interface methods
+func ConvertModelsToModelsP[P Protos, M Models](models interface{}) []Model[P] {
+	assertedModels := models.([]M)
+	things := make([]Model[P], len(assertedModels))
+	for i, v := range assertedModels {
+		things[i] = ConvertModelToModelP[P, M](v)
+	}
+	return things
+}
+
+// ConvertProtoToProtosM converts a single proto to a Proto[M]
+func ConvertModelToModelP[P Protos, M Models](model interface{}) Model[P] {
+	return any(model).(Model[P])
+}
+
+// ToProtos converts an array of models into an array of protos by calling the model's ToProto method
+func ToProtos[P Protos, M Models](models interface{}) ([]P, error) {
+	converted := ConvertModelsToModelsP[P, M](models)
+	protos := []P{}
+	for _, model := range converted {
+		proto, err := model.ToProto()
+		if err != nil {
+			return nil, err
+		}
+		protos = append(protos, proto)
+	}
+	return protos, nil
+}
+
+// Upsert is a generic function that will upsert any of the generated protos, returning the upserted models. Upsert
+// excludes all associations, and uses an on conflict clause to handle upsert. A function may be provided to be executed
+// during the transaction. The function is executed after the upsert. If the function returns an error, the transaction
+// will be rolled back.
+func Upsert[P Protos, M Models](ctx context.Context, db *gorm.DB, protos interface{}) ([]M, error) {
+	converted := ConvertProtosToProtosM[P, M](protos)
+	if len(converted) > 0 {
+		models := []M{}
+		for _, proto := range converted {
+			if proto.GetProtoId() == nil {
+				proto.SetProtoId(uuid.New().String())
+			}
+			model, err := proto.ToModel()
+			if err != nil {
+				return nil, err
+			}
+			models = append(models, model)
+		}
+		session := db.Session(&gorm.Session{})
+		err := session.
+			// on conflict, update all fields
+			Clauses(clause.OnConflict{
+				UpdateAll: true,
+			}).
+			// exclude associations from upsert
+			Omit(clause.Associations).
+			Create(&models).Error
+
+		return models, err
+	}
+	return nil, nil
+}
+
+// Delete is a generic function that will delete any of the generated protos. A function may be provided to be executed
+// during the transaction. The function is executed after the delete. If the function returns an error, the transaction
+// will be rolled back.
+func Delete[M Models](ctx context.Context, db *gorm.DB, ids []string) ([]M, error) {
+	if len(ids) > 0 {
+		session := db.Session(&gorm.Session{})
+		models := []M{}
+		err := session.Where("id in ?", ids).Delete(&models).Error
+		return models, err
+	}
+	return nil, nil
+}
+
+// List lists the given model type
+func List[M Models](ctx context.Context, db *gorm.DB, limit, offset int, orderBy string, preloads []string) ([]M, error) {
+	session := db.Session(&gorm.Session{}).WithContext(ctx)
+	// set limit
+	if limit > 0 {
+		session = session.Limit(limit)
+	}
+	// set offset
+	if offset > 0 {
+		session = session.Offset(offset)
+	}
+	// set preloads
+	for _, preload := range preloads {
+		session = session.Preload(preload)
+	}
+	// set order by
+	if orderBy != "" {
+		session = session.Order(orderBy)
+	}
+	// execute
+	var models []M
+	err := session.Find(&models).Error
+	return models, err
+}
+
+// GetByIds gets the given model type by id
+func GetByIds[M Models](ctx context.Context, db *gorm.DB, ids []string, preloads []string) ([]M, error) {
+	session := db.Session(&gorm.Session{}).WithContext(ctx)
+	// set preloads
+	for _, preload := range preloads {
+		session = session.Preload(preload)
+	}
+	models := []M{}
+	err := session.Where("id in ?", ids).Find(&models).Error
+	return models, err
+}
+
+// ManyToManyAssociations is a sync map with helper functions. I'm using a sync.map so that it's thread safe, and
+// a struct to allow us to easily define behavior we can use elsewhere
+type ManyToManyAssociations struct {
+	data sync.Map
+}
+
+func (m *ManyToManyAssociations) Associations() map[string][]string {
+	associations := map[string][]string{}
+	m.data.Range(func(key, value any) bool {
+		associations[key.(string)] = value.([]string)
+		return true
+	})
+	return associations
+}
+
+func (m *ManyToManyAssociations) AddAssociation(modelId, associatedId string) {
+	var associations []string
+	val, ok := m.data.Load(modelId)
+	if ok {
+		associations = val.([]string)
+		associations = append(associations, associatedId)
+	} else {
+		associations = []string{associatedId}
+	}
+	m.data.Store(modelId, associations)
+}
+
+func AssociateManyToMany[L Models, R Models](ctx context.Context, db *gorm.DB, associations *ManyToManyAssociations, associationName string) error {
+	session := db.Session(&gorm.Session{})
+	session = session.Clauses(clause.OnConflict{DoNothing: true})
+	for id, associatedIds := range associations.Associations() {
+		var associations []R
+		var temp L
+		model := temp.New().(L)
+		model.SetModelId(id)
+		for _, id := range associatedIds {
+			var associatedTemp R
+			associatedModel := associatedTemp.New().(R)
+			associatedModel.SetModelId(id)
+			associations = append(associations, associatedModel)
+		}
+		err := session.Model(&model).Association(associationName).Append(&associations)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func DissociateManyToMany[L Models, R Models](ctx context.Context, db *gorm.DB, associations *ManyToManyAssociations, associationName string) error {
+	session := db.Session(&gorm.Session{})
+	for id, associatedIds := range associations.Associations() {
+		var associations []R
+		var temp L
+		model := temp.New().(L)
+		model.SetModelId(id)
+		for _, id := range associatedIds {
+			var associatedTemp R
+			associatedModel := associatedTemp.New().(R)
+			associatedModel.SetModelId(id)
+			associations = append(associations, associatedModel)
+		}
+		txErr := session.Model(&model).Association(associationName).Delete(&associations)
+		if txErr != nil {
+			return txErr
+		}
+	}
+	return nil
 }

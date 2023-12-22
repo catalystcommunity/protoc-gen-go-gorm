@@ -52,7 +52,7 @@ func (m *{{ .Model.Name }}) ToProto() (theProto *{{.GoIdent.GoName}}, err error)
     {{ if .IsTimestamp }}
     {{ if eq .Desc.Kind 9 }}
 	if m.{{ .GoName }} != nil {
-		theProto.{{ .GoName }} = m.{{ .GoName }}.Format(time.RFC3339Nano)
+		theProto.{{ .GoName }} = m.{{ .GoName }}.Format(TimestampFormat)
 	}
     {{ else }}
     if m.{{ .GoName }} != nil {
@@ -122,6 +122,29 @@ func (m *{{ .Model.Name }}) ToProto() (theProto *{{.GoIdent.GoName}}, err error)
 	return
 }
 
+func (p *{{.GoIdent.GoName}}) GetProtoId() *string {
+	return p.Id
+}
+
+func (p *{{.GoIdent.GoName}}) SetProtoId(id string) {
+	p.Id = lo.ToPtr(id)
+}
+
+func (m *{{ .Model.Name }}) New() interface{} {
+	return &{{ .Model.Name }}{}
+}
+
+func (m *{{ .Model.Name }}) GetModelId() *string {
+	return m.Id
+}
+
+func (m *{{ .Model.Name }}) SetModelId(id string) {
+	if m == nil {
+	  m = &{{ .Model.Name }}{}
+	}
+	m.Id = lo.ToPtr(id)
+}
+
 func (p *{{.GoIdent.GoName}}) ToModel() (theModel *{{ .Model.Name }}, err error) {
 	if p == nil {
 		return
@@ -132,7 +155,7 @@ func (p *{{.GoIdent.GoName}}) ToModel() (theModel *{{ .Model.Name }}, err error)
 	{{ if eq .Desc.Kind 9 }}
 	if p.{{ .GoName }} != "" {
 		var timestamp time.Time
-		if timestamp, err = time.Parse(time.RFC3339Nano, p.{{ .GoName }}); err != nil {
+		if timestamp, err = time.Parse(TimestampFormat, p.{{ .GoName }}); err != nil {
 			return
 		}
 		theModel.{{ .GoName }} = &timestamp

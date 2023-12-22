@@ -7,4 +7,7 @@ var headerTemplate = template.Must(template.New("header").Parse(`
 // source: {{ .Proto.Name }}
 
 package {{ .GoPackageName }}
+
+// cockroachdb doesn't support nanosecond timestamp columns so use microsecond instead
+const TimestampFormat = "2006-01-02T15:04:05.999999Z07:00"
 `))
