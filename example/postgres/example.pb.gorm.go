@@ -1650,7 +1650,8 @@ func ReplaceManyToMany[L Models, R Models](ctx context.Context, db *gorm.DB, ass
 			associatedModel.SetModelId(id)
 			associations = append(associations, associatedModel)
 		}
-		err := session.Model(&model).Association(associationName).Replace(&associations)
+		// omit is required otherwise it generates some weird sql and tries to update other columns that don't exist
+		err := session.Model(&model).Omit("*").Association(associationName).Replace(&associations)
 		if err != nil {
 			return err
 		}
@@ -1672,7 +1673,8 @@ func AssociateManyToMany[L Models, R Models](ctx context.Context, db *gorm.DB, a
 			associatedModel.SetModelId(id)
 			associations = append(associations, associatedModel)
 		}
-		err := session.Model(&model).Association(associationName).Append(&associations)
+		// omit is required otherwise it generates some weird sql and tries to update other columns that don't exist
+		err := session.Model(&model).Omit("*").Association(associationName).Append(&associations)
 		if err != nil {
 			return err
 		}
@@ -1693,7 +1695,8 @@ func DissociateManyToMany[L Models, R Models](ctx context.Context, db *gorm.DB, 
 			associatedModel.SetModelId(id)
 			associations = append(associations, associatedModel)
 		}
-		txErr := session.Model(&model).Association(associationName).Delete(&associations)
+		// omit is required otherwise it generates some weird sql and tries to update other columns that don't exist
+		txErr := session.Model(&model).Omit("*").Association(associationName).Delete(&associations)
 		if txErr != nil {
 			return txErr
 		}
