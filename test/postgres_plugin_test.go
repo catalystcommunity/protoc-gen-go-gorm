@@ -349,6 +349,56 @@ func (s *PostgresPluginSuite) TestDissociateManyToMany() {
 	}
 }
 
+// TestReplaceManyToMany tests that replaceManyToMany works as expected
+func (s *PostgresPluginSuite) TestReplaceManyToMany() {
+	// create a user and profiles
+	user := getPostgresUser(s.T())
+	userModels, err := Upsert[*User, *UserGormModel](context.Background(), postgresDb, []*User{user})
+	require.NoError(s.T(), err)
+	numProfiles := gofakeit.Number(5, 10)
+	profiles := getPostgresProfiles(s.T(), numProfiles)
+	profileModels, err := Upsert[*Profile, *ProfileGormModel](context.Background(), postgresDb, profiles)
+	require.NoError(s.T(), err)
+	// associate the users and profiles
+	associations := &ManyToManyAssociations{}
+	for _, profile := range profileModels {
+		associations.AddAssociation(*userModels[0].Id, *profile.Id)
+	}
+	err = AssociateManyToMany[*UserGormModel, *ProfileGormModel](context.Background(), postgresDb, associations, "Profiles")
+	require.NoError(s.T(), err)
+	// get with preload
+	fetchedUsers, err := GetByIds[*UserGormModel](context.Background(), postgresDb, []string{*user.Id}, []string{"Profiles"})
+	require.NoError(s.T(), err)
+	// assert
+	expectedUserModel := fetchedUsers[0]
+	expectedUser, err := expectedUserModel.ToProto()
+	require.NoError(s.T(), err)
+	assertPostgresProtosEquality(s.T(), profiles, expectedUser.Profiles,
+		protocmp.IgnoreFields(&Profile{}, "created_at", "updated_at"),
+	)
+	// replace
+	replacementProfiles := getPostgresProfiles(s.T(), numProfiles)
+	replacementProfileModels, err := Upsert[*Profile, *ProfileGormModel](context.Background(), postgresDb, replacementProfiles)
+	require.NoError(s.T(), err)
+	// associate the users and profiles
+	replacementAssociations := &ManyToManyAssociations{}
+	for _, profile := range replacementProfileModels {
+		replacementAssociations.AddAssociation(*userModels[0].Id, *profile.Id)
+	}
+	err = ReplaceManyToMany[*UserGormModel, *ProfileGormModel](context.Background(), postgresDb, replacementAssociations, "Profiles")
+	require.NoError(s.T(), err)
+	// get with preload
+	fetchedUsers, err = GetByIds[*UserGormModel](context.Background(), postgresDb, []string{*user.Id}, []string{"Profiles"})
+	require.NoError(s.T(), err)
+	// assert
+	expectedUserModel = fetchedUsers[0]
+	expectedUser, err = expectedUserModel.ToProto()
+	require.NoError(s.T(), err)
+	assertPostgresProtosEquality(s.T(), replacementProfiles, expectedUser.Profiles,
+		protocmp.IgnoreFields(&Profile{}, "created_at", "updated_at"),
+	)
+}
+
 // TestListWithWhere tests that the list function works with a where clause set on the tx
 func (s *PostgresPluginSuite) TestListWithWhere() {
 	// create profiles
