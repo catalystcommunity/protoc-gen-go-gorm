@@ -378,6 +378,56 @@ func (s *CockroachdbPluginSuite) TestDissociateManyToMany() {
 	}
 }
 
+// TestDissociateManyToMany tests that dissociateManyToMany works as expected
+func (s *CockroachdbPluginSuite) TestReplaceManyToMany() {
+	// create a user and profiles
+	user := getCockroachdbUser(s.T())
+	userModels, err := Upsert[*User, *UserGormModel](context.Background(), cockroachdbDb, []*User{user})
+	require.NoError(s.T(), err)
+	numProfiles := gofakeit.Number(5, 10)
+	profiles := getCockroachdbProfiles(s.T(), numProfiles)
+	profileModels, err := Upsert[*Profile, *ProfileGormModel](context.Background(), cockroachdbDb, profiles)
+	require.NoError(s.T(), err)
+	// associate the users and profiles
+	associations := &ManyToManyAssociations{}
+	for _, profile := range profileModels {
+		associations.AddAssociation(*userModels[0].Id, *profile.Id)
+	}
+	err = AssociateManyToMany[*UserGormModel, *ProfileGormModel](context.Background(), cockroachdbDb, associations, "Profiles")
+	require.NoError(s.T(), err)
+	// get with preload
+	fetchedUsers, err := GetByIds[*UserGormModel](context.Background(), cockroachdbDb, []string{*user.Id}, []string{"Profiles"})
+	require.NoError(s.T(), err)
+	// assert
+	expectedUserModel := fetchedUsers[0]
+	expectedUser, err := expectedUserModel.ToProto()
+	require.NoError(s.T(), err)
+	assertCockroachdbProtosEquality(s.T(), profiles, expectedUser.Profiles,
+		protocmp.IgnoreFields(&Profile{}, "created_at", "updated_at"),
+	)
+	// replace
+	replacementProfiles := getCockroachdbProfiles(s.T(), numProfiles)
+	replacementProfileModels, err := Upsert[*Profile, *ProfileGormModel](context.Background(), cockroachdbDb, replacementProfiles)
+	require.NoError(s.T(), err)
+	// associate the users and profiles
+	replacementAssociations := &ManyToManyAssociations{}
+	for _, profile := range replacementProfileModels {
+		replacementAssociations.AddAssociation(*userModels[0].Id, *profile.Id)
+	}
+	err = ReplaceManyToMany[*UserGormModel, *ProfileGormModel](context.Background(), cockroachdbDb, replacementAssociations, "Profiles")
+	require.NoError(s.T(), err)
+	// get with preload
+	fetchedUsers, err = GetByIds[*UserGormModel](context.Background(), cockroachdbDb, []string{*user.Id}, []string{"Profiles"})
+	require.NoError(s.T(), err)
+	// assert
+	expectedUserModel = fetchedUsers[0]
+	expectedUser, err = expectedUserModel.ToProto()
+	require.NoError(s.T(), err)
+	assertCockroachdbProtosEquality(s.T(), replacementProfiles, expectedUser.Profiles,
+		protocmp.IgnoreFields(&Profile{}, "created_at", "updated_at"),
+	)
+}
+
 // TestListWithWhere tests that the list function works with a where clause set on the tx
 func (s *CockroachdbPluginSuite) TestListWithWhere() {
 	// create profiles
