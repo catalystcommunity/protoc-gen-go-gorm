@@ -213,7 +213,7 @@ func (s *PostgresPluginSuite) TestPreloadBelongsTo() {
 	_, err = Upsert[*User, *UserGormModel](context.Background(), postgresDb, []*User{user})
 	require.NoError(s.T(), err)
 	// get with preload
-	fetchedUsers, err := GetByIds[*UserGormModel](context.Background(), postgresDb, []string{*user.Id}, []string{"Company"})
+	fetchedUsers, err := GetByIds[*UserGormModel](context.Background(), postgresDb, []string{*user.Id}, map[string][]interface{}{"Company": nil})
 	require.NoError(s.T(), err)
 	// assert
 	expectedUserModel := fetchedUsers[0]
@@ -235,7 +235,7 @@ func (s *PostgresPluginSuite) TestPreloadHasOne() {
 	_, err = Upsert[*Address, *AddressGormModel](context.Background(), postgresDb, []*Address{address})
 	require.NoError(s.T(), err)
 	// get with preload
-	fetchedUsers, err := GetByIds[*UserGormModel](context.Background(), postgresDb, []string{*user.Id}, []string{"Address"})
+	fetchedUsers, err := GetByIds[*UserGormModel](context.Background(), postgresDb, []string{*user.Id}, map[string][]interface{}{"Address": nil})
 	require.NoError(s.T(), err)
 	// assert
 	expectedUserModel := fetchedUsers[0]
@@ -260,7 +260,7 @@ func (s *PostgresPluginSuite) TestPreloadHasMany() {
 	_, err = Upsert[*Comment, *CommentGormModel](context.Background(), postgresDb, comments)
 	require.NoError(s.T(), err)
 	// get with preload
-	fetchedUsers, err := GetByIds[*UserGormModel](context.Background(), postgresDb, []string{*user.Id}, []string{"Comments"})
+	fetchedUsers, err := GetByIds[*UserGormModel](context.Background(), postgresDb, []string{*user.Id}, map[string][]interface{}{"Comments": nil})
 	require.NoError(s.T(), err)
 	// assert
 	expectedUserModel := fetchedUsers[0]
@@ -290,7 +290,7 @@ func (s *PostgresPluginSuite) TestPreloadManyToMany() {
 	err = AssociateManyToMany[*UserGormModel, *ProfileGormModel](context.Background(), postgresDb, associations, "Profiles")
 	require.NoError(s.T(), err)
 	// get with preload
-	fetchedUsers, err := GetByIds[*UserGormModel](context.Background(), postgresDb, []string{*user.Id}, []string{"Profiles"})
+	fetchedUsers, err := GetByIds[*UserGormModel](context.Background(), postgresDb, []string{*user.Id}, map[string][]interface{}{"Profiles": nil})
 	require.NoError(s.T(), err)
 	// assert
 	expectedUserModel := fetchedUsers[0]
@@ -319,7 +319,7 @@ func (s *PostgresPluginSuite) TestDissociateManyToMany() {
 	err = AssociateManyToMany[*UserGormModel, *ProfileGormModel](context.Background(), postgresDb, associations, "Profiles")
 	require.NoError(s.T(), err)
 	// get with preload
-	fetchedUsers, err := GetByIds[*UserGormModel](context.Background(), postgresDb, []string{*user.Id}, []string{"Profiles"})
+	fetchedUsers, err := GetByIds[*UserGormModel](context.Background(), postgresDb, []string{*user.Id}, map[string][]interface{}{"Profiles": nil})
 	require.NoError(s.T(), err)
 	// assert
 	expectedUserModel := fetchedUsers[0]
@@ -339,7 +339,7 @@ func (s *PostgresPluginSuite) TestDissociateManyToMany() {
 	err = DissociateManyToMany[*UserGormModel, *ProfileGormModel](context.Background(), postgresDb, dissociations, "Profiles")
 	require.NoError(s.T(), err)
 	// get with preload
-	fetchedUsersAfterDissociate, err := GetByIds[*UserGormModel](context.Background(), postgresDb, []string{*user.Id}, []string{"Profiles"})
+	fetchedUsersAfterDissociate, err := GetByIds[*UserGormModel](context.Background(), postgresDb, []string{*user.Id}, map[string][]interface{}{"Profiles": nil})
 	require.NoError(s.T(), err)
 	fetchedUserAfterDissociate := fetchedUsersAfterDissociate[0]
 	// assert no longer associated
@@ -367,7 +367,7 @@ func (s *PostgresPluginSuite) TestReplaceManyToMany() {
 	err = AssociateManyToMany[*UserGormModel, *ProfileGormModel](context.Background(), postgresDb, associations, "Profiles")
 	require.NoError(s.T(), err)
 	// get with preload
-	fetchedUsers, err := GetByIds[*UserGormModel](context.Background(), postgresDb, []string{*user.Id}, []string{"Profiles"})
+	fetchedUsers, err := GetByIds[*UserGormModel](context.Background(), postgresDb, []string{*user.Id}, map[string][]interface{}{"Profiles": nil})
 	require.NoError(s.T(), err)
 	// assert
 	expectedUserModel := fetchedUsers[0]
@@ -388,7 +388,7 @@ func (s *PostgresPluginSuite) TestReplaceManyToMany() {
 	err = ReplaceManyToMany[*UserGormModel, *ProfileGormModel](context.Background(), postgresDb, replacementAssociations, "Profiles")
 	require.NoError(s.T(), err)
 	// get with preload
-	fetchedUsers, err = GetByIds[*UserGormModel](context.Background(), postgresDb, []string{*user.Id}, []string{"Profiles"})
+	fetchedUsers, err = GetByIds[*UserGormModel](context.Background(), postgresDb, []string{*user.Id}, map[string][]interface{}{"Profiles": nil})
 	require.NoError(s.T(), err)
 	// assert
 	expectedUserModel = fetchedUsers[0]
