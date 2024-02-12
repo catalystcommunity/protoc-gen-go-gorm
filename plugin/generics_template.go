@@ -146,7 +146,7 @@ func Delete[M Models](ctx context.Context, db *gorm.DB, ids []string) ([]M, erro
 }
 
 // List lists the given model type
-func List[M Models](ctx context.Context, db *gorm.DB, limit, offset int, orderBy string, preloads []string) ([]M, error) {
+func List[M Models](ctx context.Context, db *gorm.DB, limit, offset int, orderBy string, preloads map[string][]interface{}) ([]M, error) {
 	session := db.Session(&gorm.Session{}).WithContext(ctx)
 	// set limit
 	if limit > 0 {
@@ -157,8 +157,8 @@ func List[M Models](ctx context.Context, db *gorm.DB, limit, offset int, orderBy
 		session = session.Offset(offset)
 	}
 	// set preloads
-	for _, preload := range preloads {
-		session = session.Preload(preload)
+	for preload, args := range preloads {
+		session = session.Preload(preload, args...)
 	}
 	// set order by
 	if orderBy != "" {
@@ -171,11 +171,11 @@ func List[M Models](ctx context.Context, db *gorm.DB, limit, offset int, orderBy
 }
 
 // GetByIds gets the given model type by id
-func GetByIds[M Models](ctx context.Context, db *gorm.DB, ids []string, preloads []string) ([]M, error) {
+func GetByIds[M Models](ctx context.Context, db *gorm.DB, ids []string, preloads map[string][]interface{}) ([]M, error) {
 	session := db.Session(&gorm.Session{}).WithContext(ctx)
 	// set preloads
-	for _, preload := range preloads {
-		session = session.Preload(preload)
+	for preload, args := range preloads {
+		session = session.Preload(preload, args...)
 	}
 	models := []M{}
 	err := session.Where("id in ?", ids).Find(&models).Error
