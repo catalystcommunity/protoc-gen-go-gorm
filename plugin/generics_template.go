@@ -25,6 +25,7 @@ type Models interface {
 	GetModelId() *string
 	SetModelId(string)
 	New() interface{}
+	TableName() string // tabler interface for gorm model, gives us access to the table name that gorm will use, see https://gorm.io/docs/conventions.html#TableName
 }
 
 // Proto[M Models] is an interface type that defines behavior for the implementer of a given Models type
