@@ -4,7 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	gorm "github.com/catalystsquad/protoc-gen-go-gorm/options"
+	gorm "github.com/catalystcommunity/protoc-gen-go-gorm/options"
 	"github.com/gertd/go-pluralize"
 	"github.com/golang/glog"
 	"github.com/stoewer/go-strcase"

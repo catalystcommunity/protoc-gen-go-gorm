@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/brianvoe/gofakeit/v6"
-	. "github.com/catalystsquad/protoc-gen-go-gorm/example/postgres"
+	. "github.com/catalystcommunity/protoc-gen-go-gorm/example/postgres"
 	"github.com/emirpasic/gods/sets/hashset"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"

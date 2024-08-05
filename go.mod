@@ -1,10 +1,10 @@
-module github.com/catalystsquad/protoc-gen-go-gorm
+module github.com/catalystcommunity/protoc-gen-go-gorm
 
 go 1.20
 
 require (
 	github.com/brianvoe/gofakeit/v6 v6.21.0
-	github.com/catalystsquad/app-utils-go v1.0.7
+	github.com/catalystcommunity/app-utils-go v1.0.7
 	github.com/dariubs/gorm-jsonb v0.1.5
 	github.com/emirpasic/gods v1.18.1
 	github.com/gertd/go-pluralize v0.2.1

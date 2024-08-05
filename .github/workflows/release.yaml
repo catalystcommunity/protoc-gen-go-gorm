@@ -34,7 +34,7 @@ jobs:
           go build -race
       - name: Get semver-tags
         run: |
-          go install github.com/catalystsquad/semver-tags@latest
+          go install github.com/catalystcommunity/semver-tags@latest
       - name: Semver Tags
         id: semver-tags
         working-directory: ./

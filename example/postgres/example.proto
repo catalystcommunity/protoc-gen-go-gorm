@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package example.postgres;
 
-option go_package = "github.com/catalystsquad/protoc-gen-go-gorm/example;example";
+option go_package = "github.com/catalystcommunity/protoc-gen-go-gorm/example;example";
 option (gorm.file_opts) = {generate: true};
 import "google/protobuf/timestamp.proto";
 import "options/gorm.proto";

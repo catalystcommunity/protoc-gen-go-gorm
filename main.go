@@ -3,9 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/catalystsquad/app-utils-go/env"
-	gorm "github.com/catalystsquad/protoc-gen-go-gorm/options"
-	"github.com/catalystsquad/protoc-gen-go-gorm/plugin"
+	"github.com/catalystcommunity/app-utils-go/env"
+	gorm "github.com/catalystcommunity/protoc-gen-go-gorm/options"
+	"github.com/catalystcommunity/protoc-gen-go-gorm/plugin"
 	"github.com/golang/glog"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"

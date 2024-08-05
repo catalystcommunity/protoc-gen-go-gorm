@@ -5,8 +5,8 @@ github.com/Microsoft/go-winio v0.5.2/go.mod h1:WpS1mjBmmwHBEWmogvA2mj8546UReBk4v
 github.com/benbjohnson/clock v1.1.0 h1:Q92kusRqC1XV2MjkWETPvjJVqKetz1OzxZB7mHJLju8=
 github.com/brianvoe/gofakeit/v6 v6.21.0 h1:tNkm9yxEbpuPK8Bx39tT4sSc5i9SUGiciLdNix+VDQY=
 github.com/brianvoe/gofakeit/v6 v6.21.0/go.mod h1:Ow6qC71xtwm79anlwKRlWZW6zVq9D2XHE4QSSMP/rU8=
-github.com/catalystsquad/app-utils-go v1.0.7 h1:oOJBcA8tbb4QjJ8J5MHilMcd1k3l1fz7kcBMONlZ104=
-github.com/catalystsquad/app-utils-go v1.0.7/go.mod h1:zJwtRgtrC5qNCjiKY9N9vQqxruNyvZvG779aYlcHbcs=
+github.com/catalystcommunity/app-utils-go v1.0.7 h1:oOJBcA8tbb4QjJ8J5MHilMcd1k3l1fz7kcBMONlZ104=
+github.com/catalystcommunity/app-utils-go v1.0.7/go.mod h1:zJwtRgtrC5qNCjiKY9N9vQqxruNyvZvG779aYlcHbcs=
 github.com/cockroachdb/cockroach-go/v2 v2.3.5 h1:Khtm8K6fTTz/ZCWPzU9Ne3aOW9VyAnj4qIPCJgKtwK0=
 github.com/cockroachdb/cockroach-go/v2 v2.3.5/go.mod h1:1wNJ45eSXW9AnOc3skntW9ZUZz6gxrQK3cOj3rK+BC8=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=

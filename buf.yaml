@@ -1,6 +1,6 @@
 # https://docs.buf.build/lint-usage/
 version: v1
-name: github.com/catalystsquad/protoc-gen-go-gorm
+name: github.com/catalystcommunity/protoc-gen-go-gorm
 lint:
   use:
     - DEFAULT

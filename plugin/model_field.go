@@ -3,7 +3,7 @@ package plugin
 import (
 	"strings"
 
-	gorm "github.com/catalystsquad/protoc-gen-go-gorm/options"
+	gorm "github.com/catalystcommunity/protoc-gen-go-gorm/options"
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
